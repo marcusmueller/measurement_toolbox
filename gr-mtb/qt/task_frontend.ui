@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>686</width>
+    <height>529</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MainWindow</string>
+  </property>
+  <widget class="QWidget" name="centralwidget">
+   <property name="sizePolicy">
+    <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+     <horstretch>0</horstretch>
+     <verstretch>0</verstretch>
+    </sizepolicy>
+   </property>
+   <layout class="QVBoxLayout" name="verticalLayout_3">
+    <item>
+     <widget class="QTableWidget" name="tableWidget"/>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>686</width>
+     <height>27</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuTask_Chooser_Frontend">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionOpen_Task_JSON"/>
+    <addaction name="actionSave_Task_JSON"/>
+    <addaction name="separator"/>
+    <addaction name="actionImport_top_block_from_Python_module"/>
+    <addaction name="actionImport_GNU_Radio_companion_Flow_Graph"/>
+    <addaction name="separator"/>
+    <addaction name="actionQuit"/>
+   </widget>
+   <addaction name="menuTask_Chooser_Frontend"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="actionOpen_Task_JSON">
+   <property name="text">
+    <string>Open Task JSON..</string>
+   </property>
+  </action>
+  <action name="actionSave_Task_JSON">
+   <property name="text">
+    <string>Save Task JSON...</string>
+   </property>
+  </action>
+  <action name="actionQuit">
+   <property name="text">
+    <string>Quit</string>
+   </property>
+  </action>
+  <action name="actionImport_top_block_from_Python_module">
+   <property name="text">
+    <string>Import top_block from Python module...</string>
+   </property>
+  </action>
+  <action name="actionImport_GNU_Radio_companion_Flow_Graph">
+   <property name="text">
+    <string>Import GNU Radio companion Flow Graph</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>actionQuit</sender>
+   <signal>activated()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>-1</x>
+     <y>-1</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>342</x>
+     <y>264</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>
