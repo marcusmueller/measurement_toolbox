@@ -35,7 +35,9 @@ GR_PYTHON_INSTALL(
     execution_agent.py
     distributed_benchmarking.py
     remote_agent.py
-    extraction_test_topblock.py DESTINATION ${GR_PYTHON_DIR}/mtb
+    extraction_test_topblock.py
+    benchmarking_task.py
+    task_frontend.py DESTINATION ${GR_PYTHON_DIR}/mtb
 )
 
 ########################################################################

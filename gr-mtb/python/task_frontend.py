@@ -28,8 +28,20 @@ class TaskFrontend(QtGui.QMainWindow):
 	def __init__(self):
 		QtGui.QMainWindow.__init__(self)
 
-		self.gui = uic.loadUi("task_frontend.ui")
+		self.gui = uic.loadUi("../qt/task_frontend.ui")
+
+		self.connect(self.gui.open_json, QtCore.SIGNAL("activated()"), lambda: self.load_json())
 		self.gui.show()
+
+
+	def load_json(self):
+		pass
+	def save_json(self):
+		pass
+	def import_tb(self):
+		pass
+	def import_grc(self):
+		pass
 
 if __name__ == "__main__":
 	app = QtGui.QApplication(sys.argv)
