@@ -20,23 +20,29 @@
 #
 
 import helpers
+import numpy
 try:
     from gnuradio import gr
 except ImportError as e:
     pass
 
-DONT_SET, STATIC, RANGE, LIST = range(4)
+_type_strings = ("DONT_SET", "STATIC", "LIN_RANGE", "LIST")
+_task_strings = ("RUN_FG", "OTHER")
+for stringpack in (_type_strings, _task_strings):
+    locals().update(map(reversed,enumerate(stringpack)))
 
 class task(object):
     """
     representation of a benchmarking task
     """
-    RUN_FG, OTHER = range(2)
-    def __init__(self, dct=None):
-        self.__dict__.update(convert_to_dict(dct))
+    def __init__(self, class_name, module_name):
+        self.class_name = class_name
+        self.module_name = module_name
+        self.variables = {}
+        self.set_type(RUN_FG)
     def set_type(self, type=RUN_FG):
-        if type == self.RUN_FG:
-            self.variables = {}
+        self._task_type = type
+        if type == RUN_FG:
             self.instruction = "run_fg"
 
     def set_target_flowgraph(self, target):
@@ -51,8 +57,8 @@ class task(object):
         setters = filter(lambda s: s.startswith("set_"), self.target.__dict__.keys())
         return [ setter[4:] for setter in setters]
 
-    def set_variable_options(self, variable, options):
-        self.variables[variable] = options
+    def set_parametrization(self, variable, parametrization):
+        self.variables[variable] = parametrization
 
     def save(self, f_or_fname):
         dic = { "instruction": self.instruction}
@@ -60,36 +66,36 @@ class task(object):
             dic.update( {"class_name":  self.class_name,
                          "module_name": self.module_name
             } ) 
-            dic["attributes"] = { }
-            dic["attributes"].update(self.variables)
+            dic["attributes"] = {}
+            for var,param in self.variables.items():
+                dic["attributes"][var] = param.to_dict()
         helpers.save_to_json(dic, f_or_fname) 
 
 class parametrization(object):
-
     def __init__(self, param_type=DONT_SET, value=None, value_type=float):
         """description of a parametrization.
 
-        param_type -- one of {DONT_SET,STATIC,RANGE,LIST}
+        param_type -- one of {DONT_SET,STATIC,LIN_RANGE,LIST}
         value -- the corresponding value
         value_type -- type to ensure when setting the individual parametrization; especially useful when wanting to use integers from a range.
 
-        For RANGE, value should be a tuple following the pattern of
+        For LIN_RANGE, value should be a tuple following the pattern of
             (start, stop, n_step)
         Compare the numpy.linspace documentation for details
         """
         self.param_type = param_type
         self._val = value
         self._val_type = value_type
-        if  (param_type in [LIST, RANGE] and not hasattr(value, "__iter__")) or \
-            (param_type is RANGE and len(value) != 3):
-            raise ValueError("if using LIST or RANGE, value needs to be iterable; for range, value must be (start, stop, n_step)")
+        if  (param_type in [LIST, LIN_RANGE] and not hasattr(value, "__iter__")) or \
+            (param_type is LIN_RANGE and len(value) != 3):
+            raise ValueError("if using LIST or LIN_RANGE, value needs to be iterable; for range, value must be (start, stop, n_step)")
 
     def split(self,n_partitions):
         """Generates a list of new parametrizations.
 
         These parametrizations are even parts of the given range or list.
         
-        In case of RANGE, if the range's number of steps is not an integer
+        In case of LIN_RANGE, if the range's number of steps is not an integer
         multiple of partitions, the steps are set to the next bigger integer
         multiple of n_partitions, enabling even splitting.
 
@@ -104,31 +110,58 @@ class parametrization(object):
         if self.param_type == DONT_SET or self.param_type == STATIC:
             return [self,] * partitions
         if self.param_type == LIST:
-            m = len(value) / partitions
-            larger = len(value) - m * partitions
-            partitions = []
+            m = len(self._val) / partitions
+            larger = len(self._val) - m * partitions
+            ret_partitions = []
             start = 0
             for i in range(partitions):
                 if i < larger:
                     n = m + 1
                 else:
                     n = m
-                partitions.append(
+                ret_partitions.append(
                     parametrization(
                         param_type=LIST,
                         value=self._val[start:start+n],
-                        value_type = self.param_type
+                        value_type = self._val_type
                     )
                 )
                 start += n
-            assert(start == len(self._vals))
-            return partitions
-        elif self.param_type == RANGE:
+            assert(start == len(self._val))
+            return ret_partitions
+        elif self.param_type == LIN_RANGE:
             l_r = self._val[2] # length of range
             if l_r % partitions: # not a multiple
                 l_r += partitions - (l_r %partitions)
             n = l_r / partitions
             (start, stop) = self._val[:2]
             r_tot = stop - start
-            r_indiv = float(r_tot) / partition
-            return [ parametrization( RANGE, (start + r_indiv * i, start + r_indiv * (i+1), n ), self._val_type ) for i in range(partitions) ]
+            r_indiv = (r_tot * (1.0 + 1.0 / l_r ) )  / partitions
+            step = r_indiv / n 
+            return [ parametrization( 
+                    LIN_RANGE,
+                    (start + r_indiv * i, 
+                    start + r_indiv * (i+1) - step,
+                    n ), self._val_type )
+                for i in range(partitions) ]
+
+    def get_values(self):
+        """
+        returns a list of the actual values contained.
+        """
+        if self.param_type == STATIC:
+            return [self._val_type(self._val)]
+        if self.param_type == LIST:
+            return map(self._val_type, self._val)
+        if self.param_type == LIN_RANGE:
+            if not numpy.dtype(self._val_type) == numpy.dtype(float):
+                return numpy.array(numpy.linspace(*self._val), dtype = self._val_type)
+            else:
+                return numpy.linspace(*self._val)
+    def to_dict(self):
+        dic =   {
+                "param_type":   _type_strings[self.param_type],
+                "value_type":   numpy.dtype(self._val_type).name,
+                "value":        helpers.convert_to_dict(self._val)
+                }
+        return dic
