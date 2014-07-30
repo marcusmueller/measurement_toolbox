@@ -20,30 +20,51 @@
 #
 
 import sys
+import imp
+import os
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from PyQt4 import uic
 
+from benchmarking_task import task
+
 class TaskFrontend(QtGui.QMainWindow):
-	def __init__(self):
-		QtGui.QMainWindow.__init__(self)
+    def __init__(self):
+        QtGui.QMainWindow.__init__(self)
 
-		self.gui = uic.loadUi("../qt/task_frontend.ui")
+        pathcandidates = [os.path.curdir, os.path.join(os.path.pardir, "qt"), os.path.join(imp.find_module("mtb")[1], "qt")]
 
-		self.connect(self.gui.open_json, QtCore.SIGNAL("activated()"), lambda: self.load_json())
-		self.gui.show()
+        self.gui = None
+        for path in pathcandidates:
+            try:
+                uifile = os.path.join(path, "task_frontend.ui")
+                self.gui = uic.loadUi(uifile)
+                print "loaded "+uifile
+                break
+            except IOError:
+                pass
+        if self.gui is None:
+            raise IOError("could not find task_frontend.ui")        
+        
+
+        self.connect(self.gui.open_json, QtCore.SIGNAL("activated()"), lambda: self.load_json())
+        self.connect(self.gui.save_json, QtCore.SIGNAL("activated()"), lambda: self.save_json())
+        self.connect(self.gui.import_tb, QtCore.SIGNAL("activated()"), lambda: self.import_tb())
+        self.connect(self.gui.import_grc, QtCore.SIGNAL("activated()"), lambda: self.import_grc())
+        self.gui.show()
 
 
-	def load_json(self):
-		pass
-	def save_json(self):
-		pass
-	def import_tb(self):
-		pass
-	def import_grc(self):
-		pass
+    def load_json(self):
+        self.json_fname = QtGui.QFileDialog.getOpenFileName(self, 'Open JSON file', filter='JSON file (*.json *.js *.task)')
+    def save_json(self):
+        self.json_fname = QtGui.QFileDialog.getSaveFileName(self, 'Save JSON file', filter='JSON file (*.json *.js *.task)')
+        pass
+    def import_tb(self):
+        pass
+    def import_grc(self):
+        pass
 
 if __name__ == "__main__":
-	app = QtGui.QApplication(sys.argv)
-	ui = TaskFrontend()
-	sys.exit(app.exec_())
+    app = QtGui.QApplication(sys.argv)
+    ui = TaskFrontend()
+    sys.exit(app.exec_())
