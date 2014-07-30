@@ -71,6 +71,26 @@ class task(object):
                 dic["attributes"][var] = param.to_dict()
         helpers.save_to_json(dic, f_or_fname) 
 
+    @staticmethod
+    def load(f_or_fname):
+        dic = helpers.load_from_json(f_or_fname)
+        return task.from_dict(dic)
+
+    @staticmethod
+    def from_string(string):
+        dic = json.loads(string)
+        return task.from_dict(dic)
+
+    @staticmethod
+    def from_dict(dic):
+        instruction = dic["instruction"]
+        class_name = dic["class_name"]
+        module_name = dic["module_name"]
+        task_ = task(class_name, module_name)
+        for var, paramdic in dic["attributes"].items():
+            task_.variables[var] = parametrization.from_dict(paramdic)
+        return task_
+
 class parametrization(object):
     def __init__(self, param_type=DONT_SET, value=None, value_type=float):
         """description of a parametrization.
@@ -89,6 +109,9 @@ class parametrization(object):
         if  (param_type in [LIST, LIN_RANGE] and not hasattr(value, "__iter__")) or \
             (param_type is LIN_RANGE and len(value) != 3):
             raise ValueError("if using LIST or LIN_RANGE, value needs to be iterable; for range, value must be (start, stop, n_step)")
+    @staticmethod
+    def from_dict(dic):
+        return parametrization(_type_strings.index(dic["param_type"]), value = dic["value"], value_type = numpy.dtype(dic["value_type"]))
 
     def split(self,n_partitions):
         """Generates a list of new parametrizations.
@@ -162,6 +185,6 @@ class parametrization(object):
         dic =   {
                 "param_type":   _type_strings[self.param_type],
                 "value_type":   numpy.dtype(self._val_type).name,
-                "value":        helpers.convert_to_dict(self._val)
+                "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE] else self._val
                 }
         return dic
