@@ -24,6 +24,7 @@ import json
 import multiprocessing
 import execnet
 import remote_agent
+import helpers
 
 class distributor(object):
     """
@@ -32,11 +33,6 @@ class distributor(object):
     Internally heavily based on zeroMQ.
     """
 
-    x_to_dict = {   dict: lambda x: x,
-                    list: lambda x: x,
-                    file: json.load,
-                    str:  json.loads,
-                }
     config = { "push_bind":     "tcp://127.0.0.1:{port:d}",
                "pub_bind":      "tcp://127.0.0.1:9010",
                "result_bind":   "tcp://127.0.0.1:9009",
@@ -80,10 +76,10 @@ class distributor(object):
         
     def load_config(self, config):
         self._config_lock.acquire()
-        self.config.update(self.x_to_dict[type(config)](config))
+        self.config.update(helpers.x_to_dict[type(config)](config))
         self._config_lock.release()
     def load_workers(self, workers):
-        workers_dict = self.x_to_dict[type(workers)](workers)
+        workers_dict = helpers.x_to_dict[type(workers)](workers)
         for worker in workers_dict["workers"]:
             ## if not configured to be in a pool, have a pool of your own.
             pool_ids = worker.setdefault("pools", [worker["id"]])
@@ -110,7 +106,7 @@ class distributor(object):
             ctrl_lock.acquire()
             ctrl_lock.release()
     def load_tasks(self, tasks):
-        tasks_dict = self.x_to_dict[type(tasks)](tasks)
+        tasks_dict = helpers.x_to_dict[type(tasks)](tasks)
         for task in tasks_dict["tasks"]:
             target = task["target"]
             items = task["items"]

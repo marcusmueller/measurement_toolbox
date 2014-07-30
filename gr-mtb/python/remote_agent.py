@@ -125,10 +125,10 @@ class remote_agent(object):
             for task in tasks:
                 instruction = task["instruction"]
                 try:
-                    result = self.task_dic[instruction](command)
+                    result = self.task_dic[instruction](task)
                     if result is None:
                         result = {"result": None}
-                    results.append(result, command.get("id", 0))
+                    results.append(result, task.get("id", 0))
                 except KeyError as e:
                     results.append({"result": "fail", "error": e.msg}, command.get("id",0))
             self.results_tx.send_json(results)
