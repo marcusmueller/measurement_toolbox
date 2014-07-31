@@ -20,14 +20,23 @@
 #
 
 import helpers
+
+import os
 import numpy
+import json
+from gnuradio import gr
 try:
-    from gnuradio import gr
+    try:
+        from grc.python.Platform import Platform
+    except ImportError:
+        from gnuradio.grc.python.Platform import Platform
 except ImportError as e:
     pass
+    # can work without grc on remote nodes.
 
 _type_strings = ("DONT_SET", "STATIC", "LIN_RANGE", "LIST")
-_task_strings = ("RUN_FG", "OTHER")
+_task_strings = ("RUN_FG", "RUN_GRC", "OTHER")
+
 for stringpack in (_type_strings, _task_strings):
     locals().update(map(reversed,enumerate(stringpack)))
 
@@ -35,15 +44,72 @@ class task(object):
     """
     representation of a benchmarking task
     """
-    def __init__(self, class_name, module_name):
-        self.class_name = class_name
-        self.module_name = module_name
+    def __init__(self, class_name_or_grc, module_name = None, task_type = RUN_FG):
         self.variables = {}
-        self.set_type(RUN_FG)
+        self.set_type(task_type)
+        if task_type == RUN_FG:
+            self.class_name = class_name_or_grc
+            self.module_name = module_name
+        elif task_type == RUN_GRC:
+            self.grcfile = class_name_or_grc
+
+    @staticmethod
+    def load(f_or_fname):
+        """
+        load from file object or filename
+        """
+        dic = helpers.load_from_json(f_or_fname)
+        return task.from_dict(dic)
+
+    @staticmethod
+    def from_string(string):
+        """
+        parse JSON string
+        """
+        dic = json.loads(string)
+        return task.from_dict(dic)
+
+    @staticmethod
+    def from_dict(dic):
+        """
+        use dict to initialize task
+        """
+        instruction = dic["instruction"].upper()
+        if _task_strings.index(instruction) == RUN_FG:
+            class_name = dic.get("class_name")
+        elif _task_strings.index(instruction) == RUN_GRC:
+            class_name = dic.get("grc_file")
+        module_name = dic.get("module_name",None)
+        task_ = task(class_name, module_name, _task_strings.index(instruction))
+        for var, paramdic in dic["attributes"].items():
+            task_.variables[var] = parametrization.from_dict(paramdic)
+        return task_
+
+    @staticmethod
+    def from_grc(filename):
+        """
+        read .grc file to extract variables
+        """
+        platform = Platform()
+        data = platform.parse_flow_graph(filename)
+
+        fg = platform.get_new_flow_graph()
+        fg.import_data(data)
+        fg.grc_file_path = os.path.abspath(filename)
+        fg.validate()
+
+        if not fg.is_valid():
+            raise StandardError("Compilation error")
+        _task = task("","")
+        for var in fg.get_variables():
+            _task.set_parametrization(var.get_id(), parametrization(STATIC, var.get_var_value()))
+        return _task
+
+
+
     def set_type(self, type=RUN_FG):
         self._task_type = type
-        if type == RUN_FG:
-            self.instruction = "run_fg"
+        self.instruction = _task_strings[type].lower()
 
     def set_target_flowgraph(self, target):
         if issubclass(target, gr.top_block):
@@ -61,7 +127,10 @@ class task(object):
         self.variables[variable] = parametrization
 
     def save(self, f_or_fname):
-        dic = { "instruction": self.instruction}
+        dic = self.to_dict()
+        helpers.save_to_json(dic, f_or_fname)
+    def to_dict(self):
+        dic = { "instruction": self.instruction }
         if self.instruction == "run_fg":
             dic.update( {"class_name":  self.class_name,
                          "module_name": self.module_name
@@ -69,27 +138,12 @@ class task(object):
             dic["attributes"] = {}
             for var,param in self.variables.items():
                 dic["attributes"][var] = param.to_dict()
-        helpers.save_to_json(dic, f_or_fname) 
+        return dic
+    def __str__(self):
+        return json.dumps(self.to_dict(), indent=4)
+    def __repr__(self):
+        return json.dumps(self.to_dict())
 
-    @staticmethod
-    def load(f_or_fname):
-        dic = helpers.load_from_json(f_or_fname)
-        return task.from_dict(dic)
-
-    @staticmethod
-    def from_string(string):
-        dic = json.loads(string)
-        return task.from_dict(dic)
-
-    @staticmethod
-    def from_dict(dic):
-        instruction = dic["instruction"]
-        class_name = dic["class_name"]
-        module_name = dic["module_name"]
-        task_ = task(class_name, module_name)
-        for var, paramdic in dic["attributes"].items():
-            task_.variables[var] = parametrization.from_dict(paramdic)
-        return task_
 
 class parametrization(object):
     def __init__(self, param_type=DONT_SET, value=None, value_type=float):
@@ -185,6 +239,6 @@ class parametrization(object):
         dic =   {
                 "param_type":   _type_strings[self.param_type],
                 "value_type":   numpy.dtype(self._val_type).name,
-                "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE] else self._val
+                "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE,STATIC] else self._val
                 }
         return dic

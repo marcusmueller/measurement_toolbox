@@ -28,9 +28,21 @@ x_to_dict = {
                     set:    lambda x: x,
                     file:   json.load,
                     str:    json.loads,
+                    float:  lambda x: x,
+                    int:    lambda x: x,
                     type(None): lambda x: dict(),
             }
 
+def comp_dict(dicta, dictb):
+    """compares two dictionaries element-wise, including recursion through sub-dictionaries."""
+    for key in dicta.keys():
+        if isinstance(dicta[key], dict):
+            if not comp_dict(dicta[key], dictb[key]):
+                return False
+        elif dicta[key] != dictb[key]:
+            print dicta[key] , "!=", dictb[key]
+            return False
+    return True
 
 def apply_to_type(dic, thing):
     return dic[type(thing)](thing)

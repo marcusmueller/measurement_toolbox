@@ -19,6 +19,8 @@
 # Boston, MA 02110-1301, USA.
 #
 
+import benchmarking_task
+
 from gnuradio import gr, gr_unittest
 try:
     import mtb_swig as mtb
@@ -26,22 +28,12 @@ except ImportError:
     pass
 
 import numpy
-import benchmarking_task
 import json
 try:
     import cStringIO as StringIO
 except ImportError:
     import StringIO
 
-def comp_dict(dicta, dictb):
-    for key in dicta.keys():
-        if isinstance(dicta[key], dict):
-            if not comp_dict(dicta[key], dictb[key]):
-                return False
-        elif dicta[key] != dictb[key]:
-            print dicta[key] , "!=", dictb[key]
-            return False
-    return True
 class qa_benchmarking_task (gr_unittest.TestCase):
     def setUp(self):
         self.taskstring = ""
@@ -103,7 +95,7 @@ class qa_benchmarking_task (gr_unittest.TestCase):
         ref_spec[2] = (self.range_spec[2] / 13 ) * 13 + 13
         self.assertFloatTuplesAlmostEqual(total, numpy.linspace(*ref_spec), places = 5)
 
-    def test_005_task_save(self):
+    def test_005_task_json_save(self):
         task = benchmarking_task.task("class", "module")
         task.set_parametrization("static_test_variable", 
             benchmarking_task.parametrization(benchmarking_task.STATIC,numpy.pi, numpy.dtype("float32").type))
@@ -115,15 +107,36 @@ class qa_benchmarking_task (gr_unittest.TestCase):
         task.save(outfile)
         outfile.seek(0)
         resdic = json.load(outfile)
-        self.assert_(comp_dict(resdic, self.ref_task_dic))
+        self.assert_(helpers.comp_dict(resdic, self.ref_task_dic))
 
-    def test_006_task_load(self):
+    def test_006_task_json_load(self):
         task = benchmarking_task.task.from_dict(self.ref_task_dic)
         outfile = StringIO.StringIO()
         task.save(outfile)
         outfile.seek(0)
         resdic = json.load(outfile)
-        self.assert_(comp_dict(resdic, self.ref_task_dic))
+        self.assert_(helpers.comp_dict(resdic, self.ref_task_dic))
+
+    def test_007_task_grc_load(self):
+        task = benchmarking_task.task.from_grc("extraction_test_topblock.grc")
+        refdic = {
+                "class_name": "", 
+                "module_name": "", 
+                "instruction": "run_fg", 
+                "attributes": {
+                    "length": {
+                        "value_type": "float64", 
+                        "param_type": "STATIC", 
+                        "value": 100
+                        }, 
+                    "value": {
+                        "value_type": "float64", 
+                        "param_type": "STATIC", 
+                        "value": 0.5
+                        }
+                    }
+                }
+        self.assert_(helpers.comp_dict(task.to_dict(), refdic))
         
 
 
