@@ -238,6 +238,14 @@ class parametrization(object):
                 return numpy.array(numpy.linspace(*self._val), dtype = self._val_type)
             else:
                 return numpy.linspace(*self._val)
+
+    def get_length(self):
+        return  {
+                    STATIC: 1,
+                    LIST: lambda: len(self._val),
+                    LIN_RANGE: lambda: self._val[2]
+                }.get(self.param_type, 0)
+
     def to_dict(self):
         dic =   {
                 "param_type":   _type_strings[self.param_type],
