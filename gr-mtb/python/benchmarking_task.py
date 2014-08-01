@@ -24,6 +24,8 @@ import helpers
 import os
 import numpy
 import json
+import copy
+
 from gnuradio import gr
 try:
     try:
@@ -44,7 +46,7 @@ class task(object):
     """
     representation of a benchmarking task
     """
-    def __init__(self, class_name_or_grc, module_name = None, task_type = RUN_FG):
+    def __init__(self, class_name_or_grc="", module_name = None, task_type = RUN_FG):
         self.variables = {}
         self.set_type(task_type)
         if task_type == RUN_FG:
@@ -143,10 +145,60 @@ class task(object):
         return json.dumps(self.to_dict(), indent=4)
     def __repr__(self):
         return json.dumps(self.to_dict())
+    
+    def _get_const_names(self):     return filter(lambda k: self.variables[k].param_type == STATIC, self.variables.keys())
+    def _get_variable_names(self):  return filter(lambda k: self.variables[k].param_type in (LIN_RANGE, LIST), self.variables.keys())
+    def get_parameter_set(self):
+        """
+        construct the measurement space and return it.
 
-    def next_parameter_set(self):
+        This constructs the measurement space and returns it.
+
+        Return Values
+        -------------
+        (var_grid, constants, names):
+
+        var_grid -- a grid of measurement points that cover all combinations of variables as specified in the parametrizations
+        constants -- the values of constants 
+        names -- the names of the respective variables in the order that they are contained in [ var_grid, constants ]
+        """
         
+        varying_names   = self._get_variable_names()
+        const_names     = self._get_const_names()
+        names   = varying_names + const_names
+        varying = [self.variables[name] for name in varying_names]
+        const   = [self.variables[name] for name in const_names]
+        mesh    = numpy.meshgrid(*[var.get_values() for var in varying])
+        var_grid = numpy.transpose([numpy.ravel(ndarray) for ndarray in mesh])
+        return var_grid, const, names
 
+    def split(self, n):
+        """
+        returns a split of the parametrization space into n subtasks, done along the biggest sub-problem dimension
+        """
+        max_param = max(self.variables, key = lambda k: self.variables[k].get_length())
+        param_splits = self.variables[max_param].split(n)
+        task_splits  = [task(task_type = self._task_type) for i in param_splits]
+        for i,t in enumerate(task_splits):
+            if self._task_type == RUN_FG:
+                t.class_name  = self.class_name
+                t.module_name = self.module_name
+            elif self._task_type == RUN_GRC:
+                t.grcfile = self.grcfile
+            for varname in self.variables.keys():
+                if varname == max_param:
+                    t.set_parametrization(varname, param_splits[i])
+                else:
+                    t.set_parametrization(varname, self.variables[varname])
+        return task_splits
+
+    def get_total_points(self):
+        """
+        returns the total amount of measurement points defined in this task.
+        """
+        return reduce(lambda x,y: x * (y.get_length()), self.variables.values(), 1)
+        ### Whoa. Never thought my python would be this functional at one point. fischerm would be kind of irritated I didn't
+        ### switch to haskell by now.
 
 class parametrization(object):
     def __init__(self, param_type=DONT_SET, value=None, value_type=float):
@@ -194,7 +246,7 @@ class parametrization(object):
             larger = len(self._val) - m * partitions
             ret_partitions = []
             start = 0
-            for i in range(partitions):
+            for i in xrange(partitions):
                 if i < larger:
                     n = m + 1
                 else:
@@ -223,7 +275,7 @@ class parametrization(object):
                     (start + r_indiv * i, 
                     start + r_indiv * (i+1) - step,
                     n ), self._val_type )
-                for i in range(partitions) ]
+                for i in xrange(partitions) ]
 
     def get_values(self):
         """
@@ -241,10 +293,11 @@ class parametrization(object):
 
     def get_length(self):
         return  {
-                    STATIC: 1,
-                    LIST: lambda: len(self._val),
-                    LIN_RANGE: lambda: self._val[2]
-                }.get(self.param_type, 0)
+                    STATIC:     lambda: 1,
+                    DONT_SET:   lambda: 1,
+                    LIST:       lambda: len(self._val),
+                    LIN_RANGE:  lambda: self._val[2]
+                }[self.param_type]()
 
     def to_dict(self):
         dic =   {

@@ -138,7 +138,25 @@ class qa_benchmarking_task (gr_unittest.TestCase):
                     }
                 }
         self.assert_(helpers.comp_dict(task.to_dict(), refdic))
-        
+    
+    def test_008_total_points(self):
+        task = benchmarking_task.task()
+        l_noise     = 100
+        l_signal    = 13
+        task.set_parametrization("noise_power",  benchmarking_task.parametrization(benchmarking_task.LIST, range(l_noise), int))
+        task.set_parametrization("signal_power", benchmarking_task.parametrization(benchmarking_task.LIN_RANGE, (0,10,l_signal)))
+        task.set_parametrization("sample_rate", benchmarking_task.parametrization())
+        task.set_parametrization("threshold", benchmarking_task.parametrization(benchmarking_task.STATIC, 1.0/numpy.pi))
+
+        points = task.get_total_points()
+        self.assertEqual(points, l_noise*l_signal * 1 * 1)
+
+        n = 20
+
+        tasks = task.split(n)
+        self.assertEqual(len(tasks), 20)
+        self.assertEqual(sum([t.get_total_points() for t in tasks]), points)
+
 
 
 if __name__ == '__main__':
