@@ -20,6 +20,7 @@
 #
 
 import benchmarking_task
+import helpers
 
 from gnuradio import gr, gr_unittest
 try:
