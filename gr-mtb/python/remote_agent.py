@@ -24,6 +24,7 @@ import traceback
 import sys
 import multiprocessing
 
+from benchmarking_task import parametrization, task
 ## ugly hack to make things work with bpython et al.
 ## multiprocessing assumes that stdout/err/in behave like proper streams,
 ## for some python shells some methods have not been implemented, though.
@@ -122,16 +123,11 @@ class remote_agent(object):
         if "task" in dct:
             results = []
             tasks = dct["task"]
-            for task in tasks:
-                instruction = task["instruction"]
-                try:
-                    result = self.task_dic[instruction](task)
-                    if result is None:
-                        result = {"result": None}
-                    results.append(result, task.get("id", 0))
-                except KeyError as e:
-                    results.append({"result": "fail", "error": e.msg}, command.get("id",0))
+            for dct_task in tasks:
+                task = parametrization.from_dict(dct_task)
+                self.execute(task)
             self.results_tx.send_json(results)
+
     def task_attach(self, task_dict):
         self.task_lock.acquire()
         self.task_rx.connect(task_dict["remote"])
@@ -214,6 +210,11 @@ class remote_agent(object):
                 except TypeError as e: #either data is not a callable, or it has a different signature
                     pass
         return sinks
+    def execute(self, task):
+        """
+        execute task as defined in task object
+        """
+        task.
 
 if __name__ == "__channelexec__":
     """

@@ -144,6 +144,9 @@ class task(object):
     def __repr__(self):
         return json.dumps(self.to_dict())
 
+    def next_parameter_set(self):
+        
+
 
 class parametrization(object):
     def __init__(self, param_type=DONT_SET, value=None, value_type=float):
