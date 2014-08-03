@@ -157,7 +157,20 @@ class qa_benchmarking_task (gr_unittest.TestCase):
         self.assertEqual(len(tasks), 20)
         self.assertEqual(sum([t.get_total_points() for t in tasks]), points)
 
+    def test_009_grid(self):
+        task = benchmarking_task.task()
+        ns = [5, 7, 13]
+        for n in ns:
+            task.set_parametrization("var_range_"+str(n), benchmarking_task.parametrization(benchmarking_task.LIN_RANGE, (0,1,n)))
+        ns.append(2)
+        task.set_parametrization("var_list", benchmarking_task.parametrization(benchmarking_task.LIST, [0,1]))
+        ns.append(1)
+        task.set_parametrization("var_static", benchmarking_task.parametrization(benchmarking_task.STATIC, numpy.pi))
 
+        total_should = reduce(lambda x,y: x*y, ns, 1)
+        grid, constants, names = task.get_parameter_set()
+        self.assertEqual(len(grid) , total_should)
+        self.assertSequenceEqual(constants, [task.variables["var_static"]])
 
 if __name__ == '__main__':
     gr_unittest.run(qa_benchmarking_task, "qa_benchmarking_task.xml")
