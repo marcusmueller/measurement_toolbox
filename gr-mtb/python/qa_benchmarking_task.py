@@ -30,6 +30,7 @@ except ImportError:
 
 import numpy
 import json
+import helpers
 try:
     import cStringIO as StringIO
 except ImportError:
