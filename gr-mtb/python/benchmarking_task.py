@@ -36,10 +36,10 @@ except ImportError as e:
     pass
     # can work without grc on remote nodes.
 
-_type_strings = ("DONT_SET", "STATIC", "LIN_RANGE", "LIST")
-_task_strings = ("RUN_FG", "RUN_GRC", "OTHER")
+TYPE_STRINGS = ("DONT_SET", "STATIC", "LIN_RANGE", "LIST")
+TASK_STRINGS = ("RUN_FG", "RUN_GRC", "OTHER")
 
-for stringpack in (_type_strings, _task_strings):
+for stringpack in (TYPE_STRINGS, TASK_STRINGS):
     locals().update(map(reversed,enumerate(stringpack)))
 
 class task(object):
@@ -77,12 +77,12 @@ class task(object):
         use dict to initialize task
         """
         instruction = dic["instruction"].upper()
-        if _task_strings.index(instruction) == RUN_FG:
+        if TASK_STRINGS.index(instruction) == RUN_FG:
             class_name = dic.get("class_name")
-        elif _task_strings.index(instruction) == RUN_GRC:
+        elif TASK_STRINGS.index(instruction) == RUN_GRC:
             class_name = dic.get("grc_file")
         module_name = dic.get("module_name",None)
-        task_ = task(class_name, module_name, _task_strings.index(instruction))
+        task_ = task(class_name, module_name, TASK_STRINGS.index(instruction))
         for var, paramdic in dic["attributes"].items():
             task_.variables[var] = parametrization.from_dict(paramdic)
         return task_
@@ -111,7 +111,7 @@ class task(object):
 
     def set_type(self, type=RUN_FG):
         self._task_type = type
-        self.instruction = _task_strings[type].lower()
+        self.instruction = TASK_STRINGS[type].lower()
 
     def set_target_flowgraph(self, target):
         if issubclass(target, gr.top_block):
@@ -220,7 +220,7 @@ class parametrization(object):
             raise ValueError("if using LIST or LIN_RANGE, value needs to be iterable; for range, value must be (start, stop, n_step)")
     @staticmethod
     def from_dict(dic):
-        return parametrization(_type_strings.index(dic["param_type"]), value = dic["value"], value_type = numpy.dtype(dic["value_type"]))
+        return parametrization(TYPE_STRINGS.index(dic["param_type"]), value = dic["value"], value_type = numpy.dtype(dic["value_type"]))
 
     def split(self,n_partitions):
         """Generates a list of new parametrizations.
@@ -301,7 +301,7 @@ class parametrization(object):
 
     def to_dict(self):
         dic =   {
-                "param_type":   _type_strings[self.param_type],
+                "param_type":   TYPE_STRINGS[self.param_type],
                 "value_type":   numpy.dtype(self._val_type).name,
                 "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE,STATIC] else self._val
                 }
