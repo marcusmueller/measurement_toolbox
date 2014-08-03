@@ -53,7 +53,7 @@ class task(object):
             self.class_name = class_name_or_grc
             self.module_name = module_name
         elif task_type == RUN_GRC:
-            self.grcfile = class_name_or_grc
+            self.grcxml = class_name_or_grc
 
     @staticmethod
     def load(f_or_fname):
@@ -306,3 +306,8 @@ class parametrization(object):
                 "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE,STATIC] else self._val
                 }
         return dic
+    def __eq__(self, other):
+        return  (self.param_type == other.param_type) and\
+                (self._val_type == other._val_type) and\
+                (self._val == other._val)
+    def __repr__(self): return str(self.to_dict())
