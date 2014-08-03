@@ -57,8 +57,6 @@ from extraction_test_topblock import extraction_test_topblock
 from benchmarking_task import benchmarking_task
 from task_frontend import task_frontend
 from helpers import helpers
-from benchmarking_task import benchmarking_task
-#
 
 # ----------------------------------------------------------------
 # Tail of workaround
