@@ -19,16 +19,29 @@
 # Boston, MA 02110-1301, USA.
 #
 
-import zmq
-import traceback
-import sys
+import imp
 import multiprocessing
+import os
+import sys
+import tempfile
+import traceback
+import zmq
 
+import benchmarking_task as bt
 from benchmarking_task import parametrization, task
 ## ugly hack to make things work with bpython et al.
 ## multiprocessing assumes that stdout/err/in behave like proper streams,
 ## for some python shells some methods have not been implemented, though.
 
+from gnuradio import gr
+try:
+    try:
+        from grc.python.Platform import Platform
+    except ImportError:
+        from gnuradio.grc.python.Platform import Platform
+except ImportError as e:
+    pass
+    # can work without grc on remote nodes.
 try:
     _ = sys.stdout.flush
 except AttributeError:
@@ -49,7 +62,7 @@ class remote_agent(object):
     started remotely, should connect to control
     """
     
-    def __init__(self, control_address):
+    def __init__(self, control_address="tcp://0.0.0.0:6666"):
         self.ctrl_address = control_address
         self.name = control_address # for now
         self.modules = {}
@@ -89,13 +102,12 @@ class remote_agent(object):
         self.task_active = False
         self.broadcast_active = False
 
-
+    def start(self):
 #        self.control_thread.start()
         self.control_loop()
 
 
     def __del__(self):
-        self.stop()
         self.ctx.destroy()
     def parse_cmd(self, dct):
         """
@@ -124,7 +136,7 @@ class remote_agent(object):
             results = []
             tasks = dct["task"]
             for dct_task in tasks:
-                task = parametrization.from_dict(dct_task)
+                task = task.from_dict(dct_task)
                 self.execute(task)
             self.results_tx.send_json(results)
 
@@ -156,6 +168,10 @@ class remote_agent(object):
     def stop(self):
         self.control_lock.acquire()
         self.ctrl_active = False
+        try:
+            self.control_rx.close()
+        except e:
+            print e
 
     def control_loop(self):
         print "start"
@@ -184,7 +200,7 @@ class remote_agent(object):
         try:
             module = __import__(task_dict["module_name"], fromlist = [ task_dict["class_name"] ] )
             # I'm open for improved instantiation schemes
-            block_class = getattr(module, task_dict["class_name"])
+            self.block_class = getattr(module, task_dict["class_name"])
             block = block_class()
         except KeyError as e:
             raise e # handling later
@@ -214,8 +230,72 @@ class remote_agent(object):
         """
         execute task as defined in task object
         """
-        task.
+        instruction = task._task_type
+        setters = {}
+        if instruction == bt.RUN_FG:
+            class_n = task.class_name
+            module_n = task.module_name
+            module = __import__(module_n, from_list = [ class_n ])
+            self.block_class = getattr(module, task_dict["class_name"])
+        elif instruction == bt.RUN_GRC:
+            if not hasattr(self, "temp_outdir"):
+                self.temp_outdir = tempfile.mkdtemp(suffix = "_py", prefix = "gr-mtb-")
+            temp_grc_file  = tempfile.NamedTemporaryFile(suffix = ".grc", delete = False, dir = self.temp_outdir)
 
+            temp_grc_file.write(task.grcxml)
+            temp_grc_file.close()
+
+            platform = Platform()
+            data = platform.parse_flow_graph(temp_grc_file.name)
+
+            fg = platform.get_new_flow_graph()
+            fg.import_data(data)
+            fg.grc_file_path = os.path.abspath(temp_grc_file.name)
+            fg.validate()
+
+            if not fg.is_valid():
+                raise StandardError("Compilation error")
+            class_n = fg.get_option("id")
+            filepath = os.path.join(self.temp_outdir, class_n + ".py")
+            gen = platform.get_generator()(fg, filepath)
+            gen.write()
+
+            module = imp.load_source(class_n, filepath)
+            self.block_class = getattr(module, class_n)
+            for inst in self.parameterize(task, self.block_class):
+                print inst
+
+    def _get_setters(self,task, instance):
+        setters = {}
+        for var, parametrization in task.variables.items():
+            try:
+                setter = getattr(instance, "set_"+var,)
+                setters[var] = setter
+            except AttributeError as e:
+                # no setter defined; guessing this calls for just setting the instance member
+                setters[var] = lambda v: setattr(instance, var, v)
+            except Exception as e:
+                pass
+        return setters
+
+    def parameterize(self, task, block_class):
+        import time
+        grid, constants, names = task.get_parameter_set()
+        n_vars = len(grid[0])
+        for param_set in grid:
+            instance = block_class()
+            setters = self._get_setters(task, instance)
+            for idx, param_val in enumerate(param_set):
+                var_name = names[idx]
+                setters[var_name](param_val)
+                print "setting", var_name, param_val
+            for idx, param_val in enumerate(constants):
+                var_name = names[idx+n_vars]
+                setters[var_name](param_val)
+                print "const", var_name, param_val
+            yield instance
+
+        
 if __name__ == "__channelexec__":
     """
     execnet execution.
