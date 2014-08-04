@@ -76,13 +76,15 @@ class task(object):
         """
         use dict to initialize task
         """
-        instruction = dic["instruction"].upper()
-        if TASK_STRINGS.index(instruction) == RUN_FG:
+        instruction = TASK_STRINGS.index(dic["instruction"].upper())
+        if instruction == RUN_FG:
             class_name = dic.get("class_name")
-        elif TASK_STRINGS.index(instruction) == RUN_GRC:
+        elif instruction == RUN_GRC:
             class_name = dic.get("grc_file")
         module_name = dic.get("module_name",None)
-        task_ = task(class_name, module_name, TASK_STRINGS.index(instruction))
+        task_ = task(class_name, module_name, instruction)
+        if instruction == RUN_GRC:
+            task_.grcxml = dic["grcxml"]
         for var, paramdic in dic["attributes"].items():
             task_.variables[var] = parametrization.from_dict(paramdic)
         return task_
@@ -167,7 +169,7 @@ class task(object):
         const_names     = self._get_const_names()
         names   = varying_names + const_names
         varying = [self.variables[name] for name in varying_names]
-        const   = [self.variables[name] for name in const_names]
+        const   = [self.variables[name].get_values() for name in const_names]
         mesh    = numpy.meshgrid(*[var.get_values() for var in varying])
         var_grid = numpy.transpose([numpy.ravel(ndarray) for ndarray in mesh])
         return var_grid, const, names
@@ -220,6 +222,7 @@ class parametrization(object):
             raise ValueError("if using LIST or LIN_RANGE, value needs to be iterable; for range, value must be (start, stop, n_step)")
     @staticmethod
     def from_dict(dic):
+        print "FROM DICT: VALUE", dic["value"]
         return parametrization(TYPE_STRINGS.index(dic["param_type"]), value = dic["value"], value_type = numpy.dtype(dic["value_type"]))
 
     def split(self,n_partitions):
@@ -282,9 +285,9 @@ class parametrization(object):
         returns a list of the actual values contained.
         """
         if self.param_type == STATIC:
-            return [self._val_type(self._val)]
+            return self._val_type.type(self._val)
         if self.param_type == LIST:
-            return map(self._val_type, self._val)
+            return map(numpy.dtype(self._val_type).type, self._val)
         if self.param_type == LIN_RANGE:
             if not numpy.dtype(self._val_type) == numpy.dtype(float):
                 return numpy.array(numpy.linspace(*self._val), dtype = self._val_type)
