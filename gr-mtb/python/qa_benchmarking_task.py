@@ -60,7 +60,8 @@ class qa_benchmarking_task (gr_unittest.TestCase):
                         "value": float(numpy.pi),
                         "value_type": "float32"
                         }
-                    }
+                    },
+                "sinks": ["myhumblesink",]
                 }
     def tearDown(self):
         pass
@@ -135,7 +136,8 @@ class qa_benchmarking_task (gr_unittest.TestCase):
                         "param_type": "STATIC", 
                         "value": 0.5
                         }
-                    }
+                    },
+                "sinks": [ "blocks_vector_sink_x_0", ]
                 }
         self.assert_(helpers.comp_dict(task.to_dict(), refdic))
     

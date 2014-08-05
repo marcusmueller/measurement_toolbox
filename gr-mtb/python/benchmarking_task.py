@@ -22,6 +22,7 @@
 import helpers
 
 import os
+import tempfile
 import numpy
 import json
 import copy
@@ -48,6 +49,7 @@ class task(object):
     """
     def __init__(self, class_name_or_grc="", module_name = None, task_type = RUN_FG):
         self.variables = {}
+        self.sinks = []
         self.set_type(task_type)
         if task_type == RUN_FG:
             self.class_name = class_name_or_grc
@@ -87,13 +89,32 @@ class task(object):
             task_.grcxml = dic["grcxml"]
         for var, paramdic in dic["attributes"].items():
             task_.variables[var] = parametrization.from_dict(paramdic)
+        for sink in dic["sinks"]:
+            task_.sinks.append(var)
         return task_
+    
+    def read_sinks_from_grc(self):
+            grcfile = tempfile.NamedTemporaryFile(suffix=".grc", delete=False)
+            grcfile.write(self.grcxml)
+            grcfile.close()
+            fg = task._get_flowgraph_from_grcfile(grcfile.name)
+            self._get_sinks_from_grc_fg(fg)
+            os.unlink(grcfile.name)
 
     @staticmethod
     def from_grc(filename):
         """
         read .grc file to extract variables
         """
+        fg = task._get_flowgraph_from_grcfile(filename)
+        _task = task("","")
+        for var in fg.get_variables():
+            _task.set_parametrization(var.get_id(), parametrization(STATIC, var.get_var_value()))
+        _task._get_sinks_from_grc_fg(fg)
+        return _task
+
+    @staticmethod
+    def _get_flowgraph_from_grcfile(filename):
         platform = Platform()
         data = platform.parse_flow_graph(filename)
 
@@ -104,12 +125,16 @@ class task(object):
 
         if not fg.is_valid():
             raise StandardError("Compilation error")
-        _task = task("","")
-        for var in fg.get_variables():
-            _task.set_parametrization(var.get_id(), parametrization(STATIC, var.get_var_value()))
-        return _task
 
+        return fg
 
+    def _get_sinks_from_grc_fg(self,fg):
+        for block in fg.get_blocks_unordered():
+            print block.get_id()
+            print block.get_key()
+            if block.get_enabled() and "vector_sink" in block.get_key():
+                 print "adding {:s} ({:s}) as sink".format(block.get_id(),block.get_key())
+                 self.sinks.append(block.get_id())
 
     def set_type(self, type=RUN_FG):
         self._task_type = type
@@ -142,6 +167,7 @@ class task(object):
             dic["attributes"] = {}
             for var,param in self.variables.items():
                 dic["attributes"][var] = param.to_dict()
+            dic["sinks"] = self.sinks
         return dic
     def __str__(self):
         return json.dumps(self.to_dict(), indent=4)
@@ -216,7 +242,7 @@ class parametrization(object):
         """
         self.param_type = param_type
         self._val = value
-        self._val_type = value_type
+        self._val_type = numpy.dtype(value_type)
         if  (param_type in [LIST, LIN_RANGE] and not hasattr(value, "__iter__")) or \
             (param_type is LIN_RANGE and len(value) != 3):
             raise ValueError("if using LIST or LIN_RANGE, value needs to be iterable; for range, value must be (start, stop, n_step)")

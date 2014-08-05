@@ -63,7 +63,8 @@ class qa_remote_agent (gr_unittest.TestCase):
                         "value": float(numpy.pi),
                         "value_type": "float32"
                         }
-                    }
+                    },
+                "sinks": [ ]
                 }
         self.xml_file = open(os.path.join(os.path.dirname(__file__), "extraction_test_topblock.grc"), "r")
         self.ref_task_grc["grcxml"] = self.xml_file.read()
@@ -80,7 +81,9 @@ class qa_remote_agent (gr_unittest.TestCase):
 
     def test_002_grc(self):
         ra = remote_agent.remote_agent("tcp://0.0.0.0:"+str(numpy.random.randint(12000,13000)))
-        ra.execute(benchmarking_task.task.from_dict(self.ref_task_grc))
+        task_ = benchmarking_task.task.from_dict(self.ref_task_grc)
+        task_.read_sinks_from_grc()
+        ra.execute(task_)
         ra.stop()
         ra.ctx.destroy()
         time.sleep(1e-2)

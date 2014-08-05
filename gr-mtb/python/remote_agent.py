@@ -113,7 +113,7 @@ class remote_agent(object):
         """
         use the information stored in the dictionary
         """
-        print dct
+        #print dct
         if "cmd" in dct:
             cmd_results = []
             commands = dct["cmd"]
@@ -263,7 +263,9 @@ class remote_agent(object):
             module = imp.load_source(class_n, filepath)
             self.block_class = getattr(module, class_n)
             for inst in self.parameterize(task, self.block_class):
-                print inst
+                pass
+                #print inst
+                
 
     def _get_setters(self,task, instance):
         setters = {}
@@ -288,11 +290,11 @@ class remote_agent(object):
             for idx, param_val in enumerate(param_set):
                 var_name = names[idx]
                 setters[var_name](param_val)
-                print "setting", var_name, param_val
+                #print "setting", var_name, param_val
             for idx, param_val in enumerate(constants):
                 var_name = names[idx+n_vars]
                 setters[var_name](param_val)
-                print "const", var_name, param_val
+                #print "const", var_name, param_val
             yield instance
 
         
