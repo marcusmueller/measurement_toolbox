@@ -84,14 +84,13 @@ class task(object):
         elif instruction == RUN_GRC:
             class_name = dic.get("grc_file")
         module_name = dic.get("module_name",None)
-        task_ = task(class_name, module_name, instruction)
+        mytask = task(class_name, module_name, instruction)
         if instruction == RUN_GRC:
-            task_.grcxml = dic["grcxml"]
+            mytask.grcxml = dic["grcxml"]
         for var, paramdic in dic["attributes"].items():
-            task_.variables[var] = parametrization.from_dict(paramdic)
-        for sink in dic["sinks"]:
-            task_.sinks.append(var)
-        return task_
+            mytask.variables[var] = parametrization.from_dict(paramdic)
+        mytask.sinks = dic.get("sinks", [])
+        return mytask
     
     def read_sinks_from_grc(self):
             grcfile = tempfile.NamedTemporaryFile(suffix=".grc", delete=False)
@@ -107,11 +106,11 @@ class task(object):
         read .grc file to extract variables
         """
         fg = task._get_flowgraph_from_grcfile(filename)
-        _task = task("","")
+        mytask = task("","")
         for var in fg.get_variables():
-            _task.set_parametrization(var.get_id(), parametrization(STATIC, var.get_var_value()))
-        _task._get_sinks_from_grc_fg(fg)
-        return _task
+            mytask.set_parametrization(var.get_id(), parametrization(STATIC, var.get_var_value()))
+        mytask._get_sinks_from_grc_fg(fg)
+        return mytask
 
     @staticmethod
     def _get_flowgraph_from_grcfile(filename):
@@ -130,10 +129,8 @@ class task(object):
 
     def _get_sinks_from_grc_fg(self,fg):
         for block in fg.get_blocks_unordered():
-            print block.get_id()
-            print block.get_key()
             if block.get_enabled() and "vector_sink" in block.get_key():
-                 print "adding {:s} ({:s}) as sink".format(block.get_id(),block.get_key())
+                 #print "adding {:s} ({:s}) as sink".format(block.get_id(),block.get_key())
                  self.sinks.append(block.get_id())
 
     def set_type(self, type=RUN_FG):
@@ -248,7 +245,6 @@ class parametrization(object):
             raise ValueError("if using LIST or LIN_RANGE, value needs to be iterable; for range, value must be (start, stop, n_step)")
     @staticmethod
     def from_dict(dic):
-        print "FROM DICT: VALUE", dic["value"]
         return parametrization(TYPE_STRINGS.index(dic["param_type"]), value = dic["value"], value_type = numpy.dtype(dic["value_type"]))
 
     def split(self,n_partitions):

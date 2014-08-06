@@ -105,6 +105,7 @@ class qa_benchmarking_task (gr_unittest.TestCase):
             benchmarking_task.parametrization(benchmarking_task.LIN_RANGE, self.range_spec) )
         task.set_parametrization("list_test_variable", 
             benchmarking_task.parametrization(benchmarking_task.LIST, [10,20,30], int) )
+        task.sinks = self.ref_task_dic["sinks"]
         outfile = StringIO.StringIO()
         task.save(outfile)
         outfile.seek(0)
@@ -172,7 +173,7 @@ class qa_benchmarking_task (gr_unittest.TestCase):
         total_should = reduce(lambda x,y: x*y, ns, 1)
         grid, constants, names = task.get_parameter_set()
         self.assertEqual(len(grid) , total_should)
-        self.assertSequenceEqual(constants, [task.variables["var_static"]])
+        self.assertSequenceEqual(constants, [task.variables["var_static"].get_values()])
 
 if __name__ == '__main__':
     gr_unittest.run(qa_benchmarking_task, "qa_benchmarking_task.xml")

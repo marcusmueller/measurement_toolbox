@@ -137,7 +137,7 @@ class remote_agent(object):
             tasks = dct["task"]
             for dct_task in tasks:
                 task = task.from_dict(dct_task)
-                self.execute(task)
+                self.execute_all(task)
             self.results_tx.send_json(results)
 
     def task_attach(self, task_dict):
@@ -226,9 +226,9 @@ class remote_agent(object):
                 except TypeError as e: #either data is not a callable, or it has a different signature
                     pass
         return sinks
-    def execute(self, task):
+    def execute_all(self, task):
         """
-        execute task as defined in task object
+        execute all parametrizations as defined in task object
         """
         instruction = task._task_type
         setters = {}
@@ -262,9 +262,12 @@ class remote_agent(object):
 
             module = imp.load_source(class_n, filepath)
             self.block_class = getattr(module, class_n)
-            for inst in self.parameterize(task, self.block_class):
-                pass
-                #print inst
+            for inst  in self.parameterize(task, self.block_class):
+                self._execute(inst)
+
+    def _execute(self, inst)
+        inst.run()
+        
                 
 
     def _get_setters(self,task, instance):

@@ -81,10 +81,9 @@ class qa_remote_agent (gr_unittest.TestCase):
 
     def test_002_grc(self):
         ra = remote_agent.remote_agent("tcp://0.0.0.0:"+str(numpy.random.randint(12000,13000)))
-        task_ = benchmarking_task.task.from_dict(self.ref_task_grc)
-        task_.read_sinks_from_grc()
-        ra.execute(task_)
-        ra.stop()
+        mytask = benchmarking_task.task.from_dict(self.ref_task_grc)
+        mytask.read_sinks_from_grc()
+        ra.execute_all(mytask)
         ra.ctx.destroy()
         time.sleep(1e-2)
 
