@@ -43,7 +43,7 @@ TASK_STRINGS = ("RUN_FG", "RUN_GRC", "OTHER")
 for stringpack in (TYPE_STRINGS, TASK_STRINGS):
     locals().update(map(reversed,enumerate(stringpack)))
 
-class task(object):
+class task(helpers.dictable):
     """
     representation of a benchmarking task
     """
@@ -166,10 +166,7 @@ class task(object):
                 dic["attributes"][var] = param.to_dict()
             dic["sinks"] = self.sinks
         return dic
-    def __str__(self):
-        return json.dumps(self.to_dict(), indent=4)
-    def __repr__(self):
-        return json.dumps(self.to_dict())
+    def default(self):  return self.to_dict()
     
     def _get_const_names(self):     return filter(lambda k: self.variables[k].param_type == STATIC, self.variables.keys())
     def _get_variable_names(self):  return filter(lambda k: self.variables[k].param_type in (LIN_RANGE, LIST), self.variables.keys())
@@ -225,7 +222,7 @@ class task(object):
         ### Whoa. Never thought my python would be this functional at one point. fischerm would be kind of irritated I didn't
         ### switch to haskell by now.
 
-class parametrization(object):
+class parametrization(helpers.dictable):
     def __init__(self, param_type=DONT_SET, value=None, value_type=float):
         """description of a parametrization.
 
@@ -335,4 +332,3 @@ class parametrization(object):
         return  (self.param_type == other.param_type) and\
                 (self._val_type == other._val_type) and\
                 (self._val == other._val)
-    def __repr__(self): return str(self.to_dict())

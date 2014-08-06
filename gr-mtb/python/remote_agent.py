@@ -20,6 +20,7 @@
 #
 
 import imp
+import json
 import multiprocessing
 import os
 import sys
@@ -29,6 +30,7 @@ import zmq
 
 import benchmarking_task as bt
 from benchmarking_task import parametrization, task
+import helpers
 ## ugly hack to make things work with bpython et al.
 ## multiprocessing assumes that stdout/err/in behave like proper streams,
 ## for some python shells some methods have not been implemented, though.
@@ -231,6 +233,7 @@ class remote_agent(object):
         execute all parametrizations as defined in task object
         """
         instruction = task._task_type
+        print "running at total number of points of", task.get_total_points()
         setters = {}
         if instruction == bt.RUN_FG:
             class_n = task.class_name
@@ -262,11 +265,18 @@ class remote_agent(object):
 
             module = imp.load_source(class_n, filepath)
             self.block_class = getattr(module, class_n)
-            for inst  in self.parameterize(task, self.block_class):
-                self._execute(inst)
+            results = []
+            for inst, values in self.parameterize(task, self.block_class):
+                results.append( result( values, self._execute(inst, task.sinks)) )
+            return results
 
-    def _execute(self, inst)
+    def _execute(self, inst, sinks):
         inst.run()
+        inst.wait()
+        datadict = {}
+        for sink in sinks:
+            datadict[sink] = inst.__dict__[sink].data()
+        return datadict
         
                 
 
@@ -290,17 +300,29 @@ class remote_agent(object):
         for param_set in grid:
             instance = block_class()
             setters = self._get_setters(task, instance)
+            values = {}
             for idx, param_val in enumerate(param_set):
                 var_name = names[idx]
                 setters[var_name](param_val)
+                values[var_name] = param_val
                 #print "setting", var_name, param_val
             for idx, param_val in enumerate(constants):
                 var_name = names[idx+n_vars]
                 setters[var_name](param_val)
+                values[var_name] = param_val
                 #print "const", var_name, param_val
-            yield instance
+            yield (instance, values)
 
-        
+class result(helpers.dictable):
+    def __init__(self, parameters, results):
+        self.results = results
+        self.parameters = parameters
+    def to_dict(self):
+        dic = {   "results": dict(self.results),
+                    "parameters": dict(self.parameters),
+                }
+        return dic
+
 if __name__ == "__channelexec__":
     """
     execnet execution.

@@ -61,3 +61,9 @@ def load_from_json(f_or_fname):
         return json.loads(f_or_fname)
     else:
         return json.load(f_or_fname)
+
+class dictable(object):
+    def __eq__(self, other): return helpers.comp_dict(self.to_dict(), other.to_dict())
+    def __str__(self):       return json.dumps(self.to_dict(), indent=4)
+    def __repr__(self): return json.dumps(self.to_dict())
+

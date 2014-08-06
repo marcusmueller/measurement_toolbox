@@ -42,29 +42,24 @@ class qa_remote_agent (gr_unittest.TestCase):
     def setUp(self):
         self.taskstring = ""
         self.task = []
-        self.range_spec = (0,1,1000)
+        self.range_spec = (0,1,100)
         self.ref_task_grc = {
                 "class_name":"class",
                 "module_name":"module",
                 "instruction":"run_grc",
                 "attributes": {
-                    "range_test_variable":  { 
+                    "value":  { 
                         "param_type":  "LIN_RANGE",
                         "value": list(self.range_spec),
                         "value_type": "float64"
                         },
-                    "list_test_variable": {
+                    "length": {
                         "param_type":  "LIST",
                         "value": [10,20,30],
                         "value_type": "int64"
                         },
-                    "static_test_variable": {
-                        "param_type":  "STATIC",
-                        "value": float(numpy.pi),
-                        "value_type": "float32"
-                        }
                     },
-                "sinks": [ ]
+                "sinks": [ "blocks_vector_sink_x_0" ]
                 }
         self.xml_file = open(os.path.join(os.path.dirname(__file__), "extraction_test_topblock.grc"), "r")
         self.ref_task_grc["grcxml"] = self.xml_file.read()
@@ -83,9 +78,19 @@ class qa_remote_agent (gr_unittest.TestCase):
         ra = remote_agent.remote_agent("tcp://0.0.0.0:"+str(numpy.random.randint(12000,13000)))
         mytask = benchmarking_task.task.from_dict(self.ref_task_grc)
         mytask.read_sinks_from_grc()
-        ra.execute_all(mytask)
+        results = ra.execute_all(mytask)
         ra.ctx.destroy()
         time.sleep(1e-2)
+        
+        self.assertEqual(len(results), mytask.get_total_points())
+        sink_name = self.ref_task_grc["sinks"][0]
+        for length in self.ref_task_grc["attributes"]["length"]["value"]:
+            l_res = filter(lambda r: r.parameters["length"] == length, results)
+            self.assertEqual(len(l_res), self.range_spec[-1])
+            for res in l_res:
+                res_values = res.results[sink_name]
+                self.assertFloatTuplesAlmostEqual(res_values, [res.parameters["value"]]*length )
+        json.dump([r.to_dict() for r in results], file("/tmp/out", "w"))
 
 
 if __name__ == '__main__':
