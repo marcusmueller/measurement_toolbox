@@ -52,7 +52,9 @@ def convert_to_dict(whatever):
 
 def save_to_json(obj, f_or_fname):
     if type(f_or_fname) is str:
-        json.dump(obj, open(f, "w"))
+        f_ = file(f_or_fname, "w")
+        json.dump(obj,f_)
+        f_.close()
     else:
         json.dump(obj, f_or_fname)
 
