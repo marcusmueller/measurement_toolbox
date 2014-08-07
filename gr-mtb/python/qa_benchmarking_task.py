@@ -21,6 +21,7 @@
 
 import benchmarking_task
 import helpers
+import tempfile
 
 from gnuradio import gr, gr_unittest
 try:
@@ -106,11 +107,13 @@ class qa_benchmarking_task (gr_unittest.TestCase):
         task.set_parametrization("list_test_variable", 
             benchmarking_task.parametrization(benchmarking_task.LIST, [10,20,30], int) )
         task.sinks = self.ref_task_dic["sinks"]
-        outfile = StringIO.StringIO()
+        outfile = tempfile.NamedTemporaryFile(delete=False,suffix=".json")
         task.save(outfile)
-        outfile.seek(0)
-        resdic = json.load(outfile)
+        outfile.close()
+        infile = open(outfile.name)
+        resdic = json.load(infile)
         self.assert_(helpers.comp_dict(resdic, self.ref_task_dic))
+        infile.close()
 
     def test_006_task_json_load(self):
         task = benchmarking_task.task.from_dict(self.ref_task_dic)
