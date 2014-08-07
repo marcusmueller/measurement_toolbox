@@ -30,16 +30,28 @@ try:
 except ImportError:
     pass
 
+import gc
+import json
 import numpy
 import os
+import tempfile
 import time
-import json
 try:
     import cStringIO as StringIO
 except ImportError:
     import StringIO
+from PyQt4 import QtGui
+from PyQt4 import QtCore
 
-class qa_remote_agent (gr_unittest.TestCase):
+class MyApplicationClass(QtGui.QApplication):
+
+  started = QtCore.pyqtSignal()
+
+  def exec_(self):
+      self.started.emit()
+      return QtGui.QApplication.exec_()
+
+class qa_task_frontend (gr_unittest.TestCase):
     def setUp(self):
         self.taskstring = ""
         self.task = []
@@ -65,9 +77,24 @@ class qa_remote_agent (gr_unittest.TestCase):
         self.xml_file = open(os.path.join(os.path.dirname(__file__), "extraction_test_topblock.grc"), "r")
         self.ref_task_grc["grcxml"] = self.xml_file.read()
         self.xml_file.close()
+        self.jsonfile = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+        self.jsonfilename = self.jsonfile.name
+        json.dump(self.ref_task_grc, self.jsonfile)
+        self.jsonfile.close()
 
     def tearDown(self):
-        pass
+        os.unlink(self.jsonfilename)
 
-    def test_001_instantiation(self):
-        my_ui = task_frontend()
+
+    def test_001_load_json_file(self):
+        print "hi, it's a me, UnitTest"
+        self.qapp = MyApplicationClass([])
+        self.my_ui = task_frontend.TaskFrontend()
+        self.my_ui._load_json_file_direct(self.jsonfilename)
+        QtGui.qApp = None
+        self.qapp = None
+        gc.collect()
+        print "That's all, folks"
+
+if __name__ == '__main__':
+    gr_unittest.run(qa_task_frontend, "qa_task_frontend.xml")

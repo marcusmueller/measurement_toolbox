@@ -27,6 +27,7 @@ from PyQt4 import QtCore
 from PyQt4 import uic
 
 from benchmarking_task import task
+import helpers
 
 class TaskFrontend(QtGui.QMainWindow):
     def __init__(self):
@@ -47,18 +48,33 @@ class TaskFrontend(QtGui.QMainWindow):
             raise IOError("could not find task_frontend.ui")        
         
 
-        self.connect(self.gui.open_json, QtCore.SIGNAL("activated()"), lambda: self.load_json())
-        self.connect(self.gui.save_json, QtCore.SIGNAL("activated()"), lambda: self.save_json())
+        self.connect(self.gui.open_json, QtCore.SIGNAL("activated()"), lambda: self.load_json_file())
+        self.connect(self.gui.save_json, QtCore.SIGNAL("activated()"), lambda: self.save_json_file())
         self.connect(self.gui.import_tb, QtCore.SIGNAL("activated()"), lambda: self.import_tb())
         self.connect(self.gui.import_grc, QtCore.SIGNAL("activated()"), lambda: self.import_grc())
         self.gui.show()
+        self.task = task()
 
-
-    def load_json(self):
+    def _fill_from_task(self):
+        num_rows = len(self.task.variables)
+        self.gui.variable_table.setRowCount(num_rows)
+        for idx, (key, param) in enumerate(self.task.variables.items()):
+            param_dic = param.to_dict()
+            print key+": {param_type}={value}(value_type)".format(**param_dic)
+            #self.gui.variable_table.add
+    def load_json_file(self):
         self.json_fname = QtGui.QFileDialog.getOpenFileName(self, 'Open JSON file', filter='JSON file (*.json *.js *.task)')
-    def save_json(self):
+        print self.json_fname
+        self._load_json_file_direct(self.json_fname)
+        
+    def _load_json_file_direct(self, fname):
+        self.task = task.from_dict(helpers.load_from_json(file(fname)))
+        self._fill_from_task()
+
+        
+    def save_json_file(self):
         self.json_fname = QtGui.QFileDialog.getSaveFileName(self, 'Save JSON file', filter='JSON file (*.json *.js *.task)')
-        pass
+        self.task.save(str(self.json_fname))
     def import_tb(self):
         pass
     def import_grc(self):
