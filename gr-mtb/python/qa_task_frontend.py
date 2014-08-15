@@ -81,20 +81,15 @@ class qa_task_frontend (gr_unittest.TestCase):
         self.jsonfilename = self.jsonfile.name
         json.dump(self.ref_task_grc, self.jsonfile)
         self.jsonfile.close()
+        self.qapp = MyApplicationClass([])
 
     def tearDown(self):
         os.unlink(self.jsonfilename)
 
 
     def test_001_load_json_file(self):
-        print "hi, it's a me, UnitTest"
-        self.qapp = MyApplicationClass([])
         self.my_ui = task_frontend.TaskFrontend()
         self.my_ui._load_json_file_direct(self.jsonfilename)
-        QtGui.qApp = None
-        self.qapp = None
-        gc.collect()
-        print "That's all, folks"
 
 if __name__ == '__main__':
-    gr_unittest.run(qa_task_frontend, "qa_task_frontend.xml")
+    gr_unittest.run(qa_task_frontend)#, "qa_task_frontend.xml")
