@@ -52,6 +52,7 @@ class TaskFrontend(QtGui.QMainWindow):
         self.__lastrow = -1
         self.__lastvar = None
         self.__enable_cell_checks = False
+        self.__enable_sink_checks = False
         
         for s in TYPE_STRINGS:
             self.gui.param_type.addItem(s)
@@ -62,7 +63,10 @@ class TaskFrontend(QtGui.QMainWindow):
         self.connect(self.gui.variable_table, SIGNAL("cellClicked(int,int)"), lambda row, col: self._cell_clicked(row,col))
         self.connect(self.gui.variable_table, SIGNAL("cellActivated(int,int)"), lambda row, col: self._cell_clicked(row,col))
         self.connect(self.gui.variable_table, SIGNAL("cellChanged(int,int)"), lambda row, col: self._cell_changed(row,col))
+        self.connect(self.gui.sink_table, SIGNAL("cellChanged(int,int)"), lambda row, col: self._sink_changed(row,col))
         self.connect(self.gui.add_button, SIGNAL("clicked()"), lambda: self._add_var())
+        self.connect(self.gui.add_sink_button, SIGNAL("clicked()"), lambda: self._add_sink())
+        self.connect(self.gui.del_sink_button, SIGNAL("clicked()"), lambda: self._del_sink())
         self.connect(self.gui.param_type, SIGNAL("currentIndexChanged(int)"), lambda idx: self._type_changed(idx))
         self.gui.show()
         self.task = task()
@@ -73,6 +77,10 @@ class TaskFrontend(QtGui.QMainWindow):
         self.gui.variable_table.setRowCount(num_rows)
         for idx, (key, param) in enumerate(self.task.variables.items()):
             self._add_row_from_parametrization(idx, key, param)
+        self.gui.sink_table.setRowCount(len(self.task.sinks))
+        for idx, sink in enumerate(self.task.sinks):
+            self._add_row_from_sink(idx,sink)
+
     def _add_row_from_parametrization(self, row, name, param):
         self.__enable_cell_checks = False
         param_dic = param.to_dict()
@@ -88,6 +96,10 @@ class TaskFrontend(QtGui.QMainWindow):
             self.gui.variable_table.setItem(row, col, widget)
         self.__enable_cell_checks = True
 
+    def _add_row_from_sink(self, row, sink):
+        self.__enable_sink_checks = False
+        self.gui.sink_table.setItem(row,0, QtGui.QTableWidgetItem(sink))
+        self.__enable_sink_checks = True
 
     def _cell_clicked(self, row, col):
         print row, col
@@ -123,6 +135,13 @@ class TaskFrontend(QtGui.QMainWindow):
             self._description_fill(var_name)
         else:
             pass
+
+    def _sink_changed(self, row, col):
+        if not self.__enable_sink_checks:
+            return
+        self.task.sinks = []
+        for row in range(self.gui.sink_table.rowCount()):
+            self.task.sinks.append(str(self.gui.sink_table.item(row,0).text()))
 
     def _setter_spec_change(self, var_name, spec):
         var = self.task.variables[var_name]
@@ -176,7 +195,22 @@ class TaskFrontend(QtGui.QMainWindow):
         n_rows = self.gui.variable_table.rowCount()
         self.gui.variable_table.setRowCount(n_rows+1)
         self._add_row_from_parametrization(n_rows,newname, newvar)
-
+    def _add_sink(self):
+        newname = "new_vector_sink{:d}"
+        counter = 0
+        while newname.format(counter) in self.task.sinks:
+            counter += 1
+        newname = newname.format(counter)
+        self.task.sinks.append(newname)
+        n_rows = self.gui.sink_table.rowCount()
+        self.gui.sink_table.setRowCount(n_rows+1)
+        self._add_row_from_sink(n_rows, newname)
+    def _del_sink(self):
+        col = 0
+        row = self.gui.sink_table.currentRow()
+        sinkname = str(self.gui.sink_table.item(row,col).text())
+        self.gui.sink_table.removeRow(row)
+        self.task.sinks.remove(sinkname)
 
     def load_json_file(self):
         self.json_fname = QtGui.QFileDialog.getOpenFileName(self, 'Open JSON file', filter='JSON file (*.json *.js *.task)')
@@ -194,16 +228,24 @@ class TaskFrontend(QtGui.QMainWindow):
         #FIXME
         pass
     def import_grc(self):
-        #FIXME
-        pass
+        self.grc_fname = QtGui.QFileDialog.getOpenFileName(self, 'Open GRC file', filter='GRC Flowgraph (*.grc)')
+        self._import_grc_direct(self.grc_fname)
+    def _import_grc_direct(self, name):
+        self.task = bt.task.from_grc(name)
+        self._fill_from_task()
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("JSON_FILE", type=argparse.FileType(mode='r'), nargs='?')
+    parser.add_argument("-g", "--grc-file", action='store_true')
     args = parser.parse_args()
     app = QtGui.QApplication(sys.argv)
     ui = TaskFrontend()
     if not args.JSON_FILE is None:
-        ui._load_json_file_direct(args.JSON_FILE.name)
+        if not args.grc_file:
+            ui._load_json_file_direct(args.JSON_FILE.name)
+        else:
+            print "loading GRC file"
+            ui._import_grc_direct(args.JSON_FILE.name)
     sys.exit(app.exec_())
