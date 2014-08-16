@@ -34,6 +34,7 @@ if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
     ui = TaskFrontend()
     if not args.JSON_FILE is None:
+        args.JSON_FILE.close()
         if not args.grc_file:
             ui._load_json_file_direct(args.JSON_FILE.name)
         else:

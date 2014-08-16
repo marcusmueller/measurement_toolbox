@@ -234,18 +234,3 @@ class TaskFrontend(QtGui.QMainWindow):
         self.task = bt.task.from_grc(name)
         self._fill_from_task()
 
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("JSON_FILE", type=argparse.FileType(mode='r'), nargs='?')
-    parser.add_argument("-g", "--grc-file", action='store_true')
-    args = parser.parse_args()
-    app = QtGui.QApplication(sys.argv)
-    ui = TaskFrontend()
-    if not args.JSON_FILE is None:
-        if not args.grc_file:
-            ui._load_json_file_direct(args.JSON_FILE.name)
-        else:
-            print "loading GRC file"
-            ui._import_grc_direct(args.JSON_FILE.name)
-    sys.exit(app.exec_())
