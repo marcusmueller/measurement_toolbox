@@ -19,8 +19,12 @@
 
 include(GrPython)
 
-GR_PYTHON_INSTALL(
-    PROGRAMS
-    task_frontend
-    DESTINATION bin
+#GR_PYTHON_INSTALL(
+#	FILES
+#	task_frontend.ui
+#    DESTINATION ${GR_PYTHON_DIR}/mtb/qt
+#)
+install(FILES task_frontend.ui
+    DESTINATION ${GR_PYTHON_DIR}/mtb/qt
+    COMPONENT ${GR_PYTHON_INSTALL_COMPONENT}
 )
