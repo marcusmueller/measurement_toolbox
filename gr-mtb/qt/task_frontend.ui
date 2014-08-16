@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>710</width>
+    <width>728</width>
     <height>441</height>
    </rect>
   </property>
@@ -40,6 +40,9 @@
               <width>668</width>
               <height>0</height>
              </size>
+            </property>
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Use a numeric constant for the STATIC type setter specification,&lt;/p&gt;&lt;p&gt;(start,stop,steps) for the LIN_RANGE type,&lt;/p&gt;&lt;p&gt;[1.0,2.33, -111] for the LIST type.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;p&gt;Variable types are numpy dtype-compatible strings; common choices are float32, float64 == float, uint16, complex64.&lt;/p&gt;&lt;p&gt;The variable type is applied to every element in a list to verify it can be converted to the target type.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="autoFillBackground">
              <bool>true</bool>
@@ -270,7 +273,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>710</width>
+     <width>728</width>
      <height>27</height>
     </rect>
    </property>
