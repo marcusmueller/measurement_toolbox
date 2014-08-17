@@ -22,5 +22,6 @@ include(GrPython)
 GR_PYTHON_INSTALL(
     PROGRAMS
     task_frontend
+    task_distribution
     DESTINATION bin
 )
