@@ -106,9 +106,10 @@ class task(helpers.dictable):
         read .grc file to extract variables
         """
         fg = task._get_flowgraph_from_grcfile(filename)
-        mytask = task("","")
+        mytask = task("","", task_type=RUN_GRC)
         for var in fg.get_variables():
             mytask.set_parametrization(var.get_id(), parametrization(STATIC, var.get_var_value()))
+        mytask.grcxml = open(filename).read()
         mytask._get_sinks_from_grc_fg(fg)
         return mytask
 
@@ -130,7 +131,7 @@ class task(helpers.dictable):
     def _get_sinks_from_grc_fg(self,fg):
         for block in fg.get_blocks_unordered():
             if block.get_enabled() and "vector_sink" in block.get_key():
-                 #print "adding {:s} ({:s}) as sink".format(block.get_id(),block.get_key())
+                 print "adding {:s} ({:s}) as sink".format(block.get_id(),block.get_key())
                  self.sinks.append(block.get_id())
 
     def set_type(self, type=RUN_FG):
@@ -161,6 +162,12 @@ class task(helpers.dictable):
             dic.update( {"class_name":  self.class_name,
                          "module_name": self.module_name
             } ) 
+            dic["attributes"] = {}
+            for var,param in self.variables.items():
+                dic["attributes"][var] = param.to_dict()
+            dic["sinks"] = self.sinks
+        if self.instruction == "run_grc":
+            dic.update( {"grcxml": self.grcxml})
             dic["attributes"] = {}
             for var,param in self.variables.items():
                 dic["attributes"][var] = param.to_dict()
@@ -206,7 +213,7 @@ class task(helpers.dictable):
                 t.class_name  = self.class_name
                 t.module_name = self.module_name
             elif self._task_type == RUN_GRC:
-                t.grcfile = self.grcfile
+                t.grcxml = self.grcxml
             for varname in self.variables.keys():
                 if varname == max_param:
                     t.set_parametrization(varname, param_splits[i])
@@ -325,7 +332,7 @@ class parametrization(helpers.dictable):
         dic =   {
                 "param_type":   TYPE_STRINGS[self.param_type],
                 "value_type":   numpy.dtype(self._val_type).name,
-                "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE,STATIC] else self._val
+                "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE] else self._val
                 }
         return dic
     def __eq__(self, other):

@@ -21,7 +21,7 @@
 
 import imp
 import json
-import multiprocessing
+import threading
 import os
 import sys
 import tempfile
@@ -32,7 +32,7 @@ import benchmarking_task as bt
 from benchmarking_task import parametrization, task
 import helpers
 ## ugly hack to make things work with bpython et al.
-## multiprocessing assumes that stdout/err/in behave like proper streams,
+## threading assumes that stdout/err/in behave like proper streams,
 ## for some python shells some methods have not been implemented, though.
 
 from gnuradio import gr
@@ -67,6 +67,7 @@ class remote_agent(object):
     def __init__(self, control_address="tcp://0.0.0.0:6666"):
         self.ctrl_address = control_address
         self.name = control_address # for now
+        self.path = "."
         self.modules = {}
         self.ctx = zmq.Context()
         self.control_rx = self.ctx.socket(zmq.REP)
@@ -75,14 +76,17 @@ class remote_agent(object):
         self.task_rx = self.ctx.socket(zmq.PULL)
         self.broadcast_rx = self.ctx.socket(zmq.SUB)
 
-        self.control_lock = multiprocessing.Lock()
-        self.task_lock = multiprocessing.Lock()
-        self.results_lock = multiprocessing.Lock()
-        self.broadcast_lock = multiprocessing.Lock()
+        self.control_lock = threading.Lock()
+        self.task_lock = threading.Lock()
+        self.results_lock = threading.Lock()
+        self.broadcast_lock = threading.Lock()
         
-        self.control_thread = multiprocessing.Process(target = lambda : self.control_loop())
-        self.task_thread = multiprocessing.Process(target = lambda : self.task_loop())
-        self.broadcast_thread = multiprocessing.Process(target = lambda : self.broadcast_loop())
+        self.control_thread = threading.Thread(target = lambda : self.control_loop())
+        self.task_thread = threading.Thread(target = lambda : self.task_loop())
+        self.broadcast_thread = threading.Thread(target = lambda : self.broadcast_loop())
+
+        self.task_thread.daemon = True
+        self.control_thread.daemon = True
         
         self.blocks = {}
 
@@ -90,14 +94,11 @@ class remote_agent(object):
         "task_attach":  lambda x: self.task_attach(x),
         "results_attach":  lambda x: self.results_attach(x),
         "broadcast_attach":  lambda x: self.broadcast_attach(x),
-        "assign_attr":  lambda x: setattr(self, x["attr"], x["value"]),
+        "set_attr":  lambda x: setattr(self, x["attr"], x["value"]),
         "exec_file":    lambda x: execfile(x["filename"]),  ##OK, let's start to worry about security and authentication later on
         "addpath":      lambda x: sys.path.append(x["path"]),
+        "send_results": lambda x: self.send_results(x),
         "stop":         lambda x: self.stop()
-        }
-        self.task_dic = {
-        "run_fg":   lambda x: self.run_fg(x),
-        "square":       lambda x: float(x["value"])**2
         }
         
         self.ctrl_active = True
@@ -105,8 +106,7 @@ class remote_agent(object):
         self.broadcast_active = False
 
     def start(self):
-#        self.control_thread.start()
-        self.control_loop()
+        self.control_thread.start()
 
 
     def __del__(self):
@@ -115,43 +115,46 @@ class remote_agent(object):
         """
         use the information stored in the dictionary
         """
-        #print dct
         if "cmd" in dct:
-            cmd_results = []
+            cmd_results = {}
             commands = dct["cmd"]
-            try:
-                for command in commands:
-                    instruction = command["instruction"]
-                    try:
-                        result = self.cmd_dic[instruction](command)
-                        if result is None:
-                            result = {"result": None}
-                        cmd_results.append(result, command.get("id", 0))
-                    except KeyError as e:
-                        cmd_results.append({"result": "fail", "error": e.msg , "id": command.get("id", 0)})
-            except:
-                pass
-            finally:
-                print cmd_results
-                self.control_rx.send_json(cmd_results)
-        if "task" in dct:
-            results = []
-            tasks = dct["task"]
-            for dct_task in tasks:
-                task = task.from_dict(dct_task)
-                self.execute_all(task)
-            self.results_tx.send_json(results)
+            for idx, command in enumerate(commands):
+                instruction = command["instruction"]
+                exec_id = command["id"]
+                try:
+                    result = self.cmd_dic[instruction](command)
+                except KeyError as e:
+                    print "instrucion unknown!", instruction
+                    result = {"result": "fail", "error": e.message}
+                cmd_results[str(exec_id) + str(idx)] =  result
+            self.control_rx.send_json(cmd_results)
+    def parse_task(self,task):
+        dirpath = os.path.join(self.path, "results")
+        if not os.path.isdir(dirpath):
+            os.makedirs(dirpath)
+        results = []
+        for dct_task in task:
+            task = bt.task.from_dict(dct_task)
+            results = self.execute_all(task)
+            exec_id = str(dct_task["id"])
+            resfile = open(os.path.join(self.path, "results", exec_id), "w")
+            json.dump([result.results for result in results], resfile)
+            resfile.close()
+        #self.results_tx.send_json(results)
 
     def task_attach(self, task_dict):
+        #print "attached ({name:s})".format(name=self.name)
         self.task_lock.acquire()
         self.task_rx.connect(task_dict["remote"])
         self.task_active = True
         self.task_lock.release()
         self.task_thread.start()
-    def results_attach(self, task_dict):
+        return "task attached!"
+    def results_attach(self, _dict):
         self.results_lock.acquire()
-        self.results_tx.connect(result_dict["remote"])
+        self.result_tx.connect(_dict["remote"])
         self.results_lock.release()
+
         return True
     def broadcast_attach(self, task_dict):
         self.broadcast_lock.acquire()
@@ -160,23 +163,24 @@ class remote_agent(object):
         self.broadcast_lock.release()
         self.broadcast_thread.start()
 
-    def send_results(self, result, res_id = 0):
+    def send_results(self, ids, res_id = 0):
         self.results_lock.acquire()
-        self.result["id"] = res_id
-        self.result["origin"] = self.name
-        self.results_tx.send_json(result)
+        for id in ids:
+            f = open(os.path.join(self.path, "results", id))
+            self.result_tx.send_json(json.load(f))
+            f.close()
         self.results_lock.release()
 
     def stop(self):
-        self.control_lock.acquire()
+        self.task_lock.acquire()
         self.ctrl_active = False
         try:
-            self.control_rx.close()
+            pass
         except e:
             print e
+        return {"result": "shutdown"}
 
     def control_loop(self):
-        print "start"
         while self.ctrl_active:
             self.control_lock.acquire()
             cmd = self.control_rx.recv_json()
@@ -186,7 +190,7 @@ class remote_agent(object):
         while self.task_active:
             cmd = self.task_rx.recv_json()
             self.task_lock.acquire()
-            self.parse_cmd(cmd)
+            self.parse_task(cmd)
             self.task_lock.release()
     def broadcast_loop(self):
         while self.broadcast_active:
@@ -233,13 +237,13 @@ class remote_agent(object):
         execute all parametrizations as defined in task object
         """
         instruction = task._task_type
-        print "running at total number of points of", task.get_total_points()
+        #print "running a total number of points of", task.get_total_points()
         setters = {}
         if instruction == bt.RUN_FG:
             class_n = task.class_name
             module_n = task.module_name
-            module = __import__(module_n, from_list = [ class_n ])
-            self.block_class = getattr(module, task_dict["class_name"])
+            module = __import__(module_n, fromlist = [ class_n ])
+            self.block_class = getattr(module, task.class_name)
         elif instruction == bt.RUN_GRC:
             if not hasattr(self, "temp_outdir"):
                 self.temp_outdir = tempfile.mkdtemp(suffix = "_py", prefix = "gr-mtb-")
@@ -265,17 +269,17 @@ class remote_agent(object):
 
             module = imp.load_source(class_n, filepath)
             self.block_class = getattr(module, class_n)
-            results = []
-            for inst, values in self.parameterize(task, self.block_class):
-                results.append( result( values, self._execute(inst, task.sinks)) )
-            return results
+        results = []
+        for inst, values in self.parameterize(task, self.block_class):
+            results.append( result( values, self._execute(inst, task.sinks)) )
+        return results
 
     def _execute(self, inst, sinks):
         inst.run()
         inst.wait()
         datadict = {}
         for sink in sinks:
-            datadict[sink] = inst.__dict__[sink].data()
+            datadict[sink] = list(inst.__dict__[sink].data())
         return datadict
         
                 

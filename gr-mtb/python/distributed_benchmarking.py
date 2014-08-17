@@ -21,7 +21,7 @@
 
 import zmq
 import json
-import multiprocessing
+import threading
 import execnet
 import remote_agent
 import helpers
@@ -39,29 +39,34 @@ class distributor(object):
                "start_pub_port": 10001,
              }
     def __init__(self, cfg = None):
-        self.ctx = zmq.Context()
+        self.ctx = zmq.Context.instance
+        self.ctx()
+        self._started = False
         self.pools = dict()
         self.workers = dict()
-        self._worker_lock = multiprocessing.Lock()
-        self._config_lock = multiprocessing.Lock()
+        self._worker_lock = threading.Lock()
+        self._results_lock = threading.Lock()
+        self._config_lock = threading.Lock()
         self._tasks = set()
         if not cfg is None:
             self.load_config(cfg)
-        self.publisher = self.ctx.socket(zmq.PUB)
+        self.publisher = self.ctx().socket(zmq.PUB)
         self.publisher.bind(self.config["pub_bind"])
-        self.result_listener = self.ctx.socket(zmq.PULL)
+        self.result_listener = self.ctx().socket(zmq.PULL)
         self.result_listener.bind(self.config["result_bind"])
         self.max_pub_port = self.config["start_pub_port"]
-        self.result_thread = multiprocessing.Process(target=lambda : self.results_loop())
+        self.result_thread = threading.Thread(target=lambda : self.results_loop())
+        self.result_thread.daemon = True
         self.receiving = True
+    def start(self):
         self.result_thread.start()
     def __del__(self):
-        self.ctx.destroy()
+        self.ctx().destroy()
     
     def add_pool(self, pool_id):
         if not pool_id in self.pools:
             self._config_lock.acquire()
-            sock = self.ctx.socket(zmq.PUSH)
+            sock = self.ctx().socket(zmq.PUSH)
             self.max_pub_port += 1
             bind_addr = self.config["push_bind"].format(port=self.max_pub_port) 
             sock.bind(bind_addr)
@@ -79,32 +84,57 @@ class distributor(object):
         self.config.update(helpers.x_to_dict[type(config)](config))
         self._config_lock.release()
     def load_workers(self, workers):
+        print "loading"
         workers_dict = helpers.x_to_dict[type(workers)](workers)
         for worker in workers_dict["workers"]:
+            worker.setdefault("exec_id",0)
             ## if not configured to be in a pool, have a pool of your own.
-            pool_ids = worker.setdefault("pools", [worker["id"]])
-            ctrl_sock = self.ctx.socket(zmq.REQ)
-            ctrl_lock = multiprocessing.Lock()
+            pool_id = worker.setdefault("pool", [worker["id"]])
+            ctrl_sock = self.ctx().socket(zmq.REQ)
+            ctrl_lock = threading.Lock()
             ctrl_lock.acquire()
             self.workers[worker["id"]] = (ctrl_sock, ctrl_lock, worker)
             if "execnet_address" in worker:
                 channel = execnet.makegateway(worker["execnet_address"]).remote_exec(remote_agent)
                 channel.send(worker["control_address"])
+            #print "{id:s}: connecting to {control_address:s}...".format(**worker)
             ctrl_sock.connect(worker["control_address"])
-            ctrl_sock.send_json({"cmd":[{"instruction":"set_attr","attr":"name", "value": worker["id"]}]})
-            print ctrl_sock.recv_json()
+            #print worker["id"], "connected"
+
+            self._send_ctrl(worker, {"instruction":"set_attr","attr":"name", "value": worker["id"]})
             ctrl_lock.release()
-            for pool_id in pool_ids:
-                pool = self.add_pool(pool_id)
-                pool[2].add(worker["id"])
-                ctrl_lock.acquire()
-                ctrl_sock.send_json({"cmd":[{"instruction": "task_attach", "remote": pool[1]} ] } )
-                print "task_attach:", ctrl_sock.recv_json()
-                ctrl_sock.send_json({"cmd":[{"instruction": "results_attach", "remote": self.config["result_bind"]} ] } )
-                print "results_attach:", ctrl_sock.recv_json()
-                ctrl_lock.release()
+            pool = self.add_pool(pool_id)
+            pool[2].add(worker["id"])
+            ctrl_lock.acquire()
+            self._send_ctrl(worker, {"instruction": "task_attach", "remote": pool[1]})
+            self._send_ctrl(worker, {"instruction": "results_attach", "remote": self.config["result_bind"]})
+            ctrl_lock.release()
             ctrl_lock.acquire()
             ctrl_lock.release()
+    def _send_ctrl(self, worker, dic):
+        exec_id = worker["exec_id"]
+        sock = self.workers[worker["id"]][0]
+        dic["id"] = exec_id
+        sock.send_json({"cmd":[dic,]})
+        worker["exec_id"]+=1
+        return sock.recv_json()
+    
+    def execute_task(self, task):
+        print "loaded task with  {:d} total items".format(task.get_total_points())
+        print "have {:d} pools with {:s} workers".format(len(self.pools), ";".join([ str(len(p[-1])) for p in self.pools.values()]))
+        for poolname in self.pools:
+            socket, bind_addr, set_of_workers = self.pools[poolname]
+            n_workers = len(set_of_workers)
+            splittasks = task.split(n_workers)
+            print "dealing with pool {name:s}, having {n_workers:d} workers.".format(
+                    name = poolname, n_workers = n_workers)
+            for worker, workload in zip(set_of_workers, splittasks):
+                workload = workload.to_dict()
+                worker_dic = self.workers[worker][2]
+                workload["id"] = str(worker_dic["exec_id"]) + str(worker)
+                socket.send_json([workload])
+                worker_dic["exec_id"] += 1
+
     def load_tasks(self, tasks):
         tasks_dict = helpers.x_to_dict[type(tasks)](tasks)
         for task in tasks_dict["tasks"]:
@@ -121,13 +151,22 @@ class distributor(object):
 
     def results_loop(self):
         print "starting to receive results..."
-        while True:
-            print self.result_listener.recv_json()
+        self._started = True
+        self._results_lock.acquire()
+        try:
+            while True: #will exit when _results_lock.release()d
+                print self.result_listener.recv_json()
+        except zmq.error.ContextTerminated as c:
+            pass
+
+    def running(self):
+        return self._started
 
     def shutdown_all(self):
         for w_id in self.workers.keys():
-            sock, lock, _ = self.workers[w_id]
+            sock, lock, worker = self.workers[w_id]
             lock.acquire()
-            sock.send_json({"cmd":[{"instruction": "stop"} ] } )
-            print w_id, "stopped"
+            self._send_ctrl(worker, {"instruction": "stop"} )
             #deliberately not cleaning up locks!
+        self._results_lock.release()
+        print "shut down."
