@@ -28,6 +28,7 @@ from PyQt4.QtCore import Qt, SIGNAL
 from PyQt4 import uic
 import numpy
 
+import time
 import benchmarking_task as bt
 from benchmarking_task import task, TYPE_STRINGS
 import helpers
@@ -228,9 +229,10 @@ class TaskFrontend(QtGui.QMainWindow):
         #FIXME
         pass
     def import_grc(self):
-        self.grc_fname = QtGui.QFileDialog.getOpenFileName(self, 'Open GRC file', filter='GRC Flowgraph (*.grc)')
+        self.grc_fname = str(QtGui.QFileDialog.getOpenFileName(self, 'Open GRC file', filter='GRC Flowgraph (*.grc)'))
+        time.sleep(1)
         self._import_grc_direct(self.grc_fname)
     def _import_grc_direct(self, name):
-        self.task = bt.task.from_grc(name)
+        self.task = bt.task.from_grc(str(name))
         self._fill_from_task()
 

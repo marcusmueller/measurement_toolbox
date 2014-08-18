@@ -86,7 +86,7 @@ class remote_agent(object):
         self.broadcast_thread = threading.Thread(target = lambda : self.broadcast_loop())
 
         self.task_thread.daemon = True
-        self.control_thread.daemon = True
+        self.control_thread.daemon = False
         
         self.blocks = {}
 
@@ -188,9 +188,10 @@ class remote_agent(object):
             self.control_lock.release()
     def task_loop(self):
         while self.task_active:
-            cmd = self.task_rx.recv_json()
             self.task_lock.acquire()
-            self.parse_task(cmd)
+            cmd = self.task_rx.recv_json()
+            if not cmd is None:
+                self.parse_task(cmd)
             self.task_lock.release()
     def broadcast_loop(self):
         while self.broadcast_active:
@@ -233,6 +234,9 @@ class remote_agent(object):
                     pass
         return sinks
     def execute_all(self, task):
+        print '-'*20
+        print task
+        print '-'*20
         """
         execute all parametrizations as defined in task object
         """
@@ -334,3 +338,9 @@ if __name__ == "__channelexec__":
     """
 
     agent = remote_agent(channel.receive())
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("CONTROL_ADDRESS")
+    args = parser.parse_args()
+    remote_agent(args.CONTROL_ADDRESS).start()

@@ -128,7 +128,7 @@ class qa_benchmarking_task (gr_unittest.TestCase):
         refdic = {
                 "class_name": "", 
                 "module_name": "", 
-                "instruction": "run_fg", 
+                "instruction": "run_grc", 
                 "attributes": {
                     "length": {
                         "value_type": "float64", 

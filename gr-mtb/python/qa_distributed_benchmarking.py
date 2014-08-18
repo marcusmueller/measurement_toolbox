@@ -23,12 +23,15 @@ import distributed_benchmarking
 import benchmarking_task as bt
 import remote_agent
 import helpers
+
+import copy
+import json
+import numpy
+import os
+import subprocess
+import sys
 import tempfile
 import time
-import copy
-import sys
-
-import os
 
 
 from gnuradio import gr, gr_unittest
@@ -37,8 +40,6 @@ try:
 except ImportError:
     pass
 
-import numpy
-import json
 try:
     import cStringIO as StringIO
 except ImportError:
@@ -47,53 +48,44 @@ except ImportError:
 class qa_distributed_benchmarking (gr_unittest.TestCase):
     def setUp(self):
         self.range_spec = (0,1,100)
-        self.ref_task_grc = {
-                "class_name":"class",
-                "module_name":"module",
-                "instruction":"run_grc",
-                "attributes": {
-                    "value":  { 
-                        "param_type":  "LIN_RANGE",
-                        "value": list(self.range_spec),
-                        "value_type": "float64"
-                        },
-                    "length": {
-                        "param_type":  "LIST",
-                        "value": [10,20,30],
-                        "value_type": "int64"
-                        },
-                    },
-                "sinks": [ "blocks_vector_sink_x_0" ]
-                }
+        self.xml_file = open(os.path.join(os.path.dirname(__file__), "extraction_test_topblock.grc"), "r")
+
+        self.xml_file.close()
+        task = bt.task.from_grc(self.xml_file.name)
+        task.set_parametrization("length", bt.parametrization(bt.LIST, [2,5,10], int))
+        task.set_parametrization("value", bt.parametrization(bt.LIN_RANGE, (0,10,20)))
+        
+        print task._get_variable_names()
+        print task.variables["length"]
+
+        self.dis = distributed_benchmarking.distributor()
+        self.dis.start()
+        time.sleep(0.05)
         self.worker_dic = {
                 "id": "worker",
                 "control_address": "tcp://127.0.0.1:",
                 "pool": "default"
                 }
-        self.xml_file = open(os.path.join(os.path.dirname(__file__), "extraction_test_topblock.grc"), "r")
-        self.ref_task_grc["grcxml"] = self.xml_file.read()
-        self.xml_file.close()
-        self.dis = distributed_benchmarking.distributor()
-        self.dis.start()
-        time.sleep(0.1)
     def tearDown(self):
         pass
     def test_001_start(self):
         self.assertFalse(self.dis._results_lock.acquire(False))
         ws =[]
-        remotes = []
-        for i in range(10):
+        for i in range(1):
             worker = copy.copy(self.worker_dic)
             worker["id"] += str(i)
             worker["control_address"] += str(8787 + i)
             ws.append(worker)
-            rem = remote_agent.remote_agent(worker["control_address"])
-            rem.start()
-            remotes.append(rem)
+            subprocess.Popen(["python", "remote_agent.py", worker["control_address"]])
+            print "spawned {:d}. subprocess".format(i)
 #        for i in range(5):
 #            ws[i]["pool"] = str(i)
         workers = {"workers":ws}
+        print "loading.."
+        time.sleep(1)
         self.dis.load_workers(workers)
+        time.sleep(1)
+        print "done"
 
         #task = bt.task.from_dict(self.ref_task_grc)
         task = bt.task.from_grc(self.xml_file.name)

@@ -197,6 +197,7 @@ class task(helpers.dictable):
         names   = varying_names + const_names
         varying = [self.variables[name] for name in varying_names]
         const   = [self.variables[name].get_values() for name in const_names]
+        print "varying:",varying, "const:", const 
         mesh    = numpy.meshgrid(*[var.get_values() for var in varying])
         var_grid = numpy.transpose([numpy.ravel(ndarray) for ndarray in mesh])
         return var_grid, const, names
@@ -332,7 +333,7 @@ class parametrization(helpers.dictable):
         dic =   {
                 "param_type":   TYPE_STRINGS[self.param_type],
                 "value_type":   numpy.dtype(self._val_type).name,
-                "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE] else self._val
+                "value":        helpers.convert_to_dict(self._val) if self.param_type in [LIST,LIN_RANGE,STATIC] else self._val
                 }
         return dic
     def __eq__(self, other):

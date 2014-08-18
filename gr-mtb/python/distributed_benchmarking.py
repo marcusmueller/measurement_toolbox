@@ -84,7 +84,6 @@ class distributor(object):
         self.config.update(helpers.x_to_dict[type(config)](config))
         self._config_lock.release()
     def load_workers(self, workers):
-        print "loading"
         workers_dict = helpers.x_to_dict[type(workers)](workers)
         for worker in workers_dict["workers"]:
             worker.setdefault("exec_id",0)
