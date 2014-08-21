@@ -36,9 +36,11 @@ GR_PYTHON_INSTALL(
     distributed_benchmarking.py
     remote_agent.py
     extraction_test_topblock.py
+    benchmarking_task.py
     task_frontend.py
     helpers.py
-    benchmarking_task.py DESTINATION ${GR_PYTHON_DIR}/mtb
+    benchmarking_task.py
+    visualize_results.py DESTINATION ${GR_PYTHON_DIR}/mtb
 )
 
 ########################################################################
@@ -49,6 +51,5 @@ include(GrTest)
 set(GR_TEST_TARGET_DEPS gnuradio-mtb)
 set(GR_TEST_PYTHON_DIRS ${CMAKE_BINARY_DIR}/swig)
 GR_ADD_TEST(qa_benchmarking_task ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_benchmarking_task.py)
-GR_ADD_TEST(qa_distributed_benchmarking ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_distributed_benchmarking.py)
 GR_ADD_TEST(qa_remote_agent ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_remote_agent.py)
 GR_ADD_TEST(qa_task_frontend ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_task_frontend.py)
