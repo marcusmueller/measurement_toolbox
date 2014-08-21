@@ -1,0 +1,1 @@
+{"class_name": "extraction_test_topblock", "module_name": "mtb", "instruction": "run_fg", "sinks": ["blocks_vector_sink_x_0"], "attributes": {"length": {"value_type": "float64", "param_type": "LIST", "value": [1.0, 10.0, 100.0, 1000.0]}, "value": {"value_type": "float64", "param_type": "LIN_RANGE", "value": [1.0, 10.0, 100.0]}}}

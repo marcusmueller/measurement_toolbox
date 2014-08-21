@@ -21,7 +21,7 @@
 
 import remote_agent
 import helpers
-import benchmarking_task
+import benchmarking_task as bt
 
 from gnuradio import gr, gr_unittest
 try:
@@ -43,54 +43,26 @@ class qa_remote_agent (gr_unittest.TestCase):
         self.taskstring = ""
         self.task = []
         self.range_spec = (0,1,100)
-        self.ref_task_grc = {
-                "class_name":"class",
-                "module_name":"module",
-                "instruction":"run_grc",
-                "attributes": {
-                    "value":  { 
-                        "param_type":  "LIN_RANGE",
-                        "value": list(self.range_spec),
-                        "value_type": "float64"
-                        },
-                    "length": {
-                        "param_type":  "LIST",
-                        "value": [10,20,30],
-                        "value_type": "int64"
-                        },
-                    },
-                "sinks": [ "blocks_vector_sink_x_0" ]
-                }
-        self.xml_file = open(os.path.join(os.path.dirname(__file__), "extraction_test_topblock.grc"), "r")
-        self.ref_task_grc["grcxml"] = self.xml_file.read()
-        self.xml_file.close()
-
+        self.ref_task_json = \
+        """
+{"class_name": "extraction_test_topblock", "module_name": "mtb", "instruction": "run_fg", "sinks": ["blocks_vector_sink_x_0"], "attributes": {"length": {"value_type": "float64", "param_type": "LIST", "value": [1.0, 10.0, 100.0, 1000.0]}, "value": {"value_type": "float64", "param_type": "LIN_RANGE", "value": [1.0, 10.0, 100.0]}}}
+        """
+        self.task = bt.task.load(self.ref_task_json)
+        self.ra = remote_agent.remote_agent()
     def tearDown(self):
         pass
-    
-    def test_001_instantiation(self):
-        ra = remote_agent.remote_agent("tcp://0.0.0.0:12121")
-        self.assert_(ra is not None)
-        ra.ctx.destroy()
-        time.sleep(1e-2)
-
-    def test_002_grc(self):
-        ra = remote_agent.remote_agent("tcp://0.0.0.0:"+str(numpy.random.randint(12000,13000)))
-        mytask = benchmarking_task.task.from_dict(self.ref_task_grc)
-        mytask.read_sinks_from_grc()
-        results = ra.execute_all(mytask)
-        ra.ctx.destroy()
-        time.sleep(1e-2)
-        
-        self.assertEqual(len(results), mytask.get_total_points())
-        sink_name = self.ref_task_grc["sinks"][0]
-        for length in self.ref_task_grc["attributes"]["length"]["value"]:
-            l_res = filter(lambda r: r.parameters["length"] == length, results)
-            self.assertEqual(len(l_res), self.range_spec[-1])
-            for res in l_res:
-                res_values = res.results[sink_name]
-                self.assertFloatTuplesAlmostEqual(res_values, [res.parameters["value"]]*length )
-        json.dump([r.to_dict() for r in results], file("/tmp/out", "w"))
+    def test_001_run_task(self):
+        tempstore = StringIO.StringIO()
+        results = self.ra.execute_all(self.task, tempstore)
+        for result in results:
+            par = result.parameters
+            res = result.results
+            self.assertEqual(len(par),2)
+            self.assertEqual(len(res),1)
+            self.assert_(par["value"])
+            self.assert_(par["length"])
+            self.assertEqual(par["length"], len(res["blocks_vector_sink_x_0"]))
+        self.assertSequenceEqual(json.loads(tempstore.getvalue()), [r.to_dict() for r in results])
 
 
 if __name__ == '__main__':

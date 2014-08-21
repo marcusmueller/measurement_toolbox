@@ -198,7 +198,10 @@ class task(helpers.dictable):
         varying = [self.variables[name] for name in varying_names]
         const   = [self.variables[name].get_values() for name in const_names]
         print "varying:",varying, "const:", const 
-        mesh    = numpy.meshgrid(*[var.get_values() for var in varying])
+        if len(varying) > 1:
+            mesh    = numpy.meshgrid(*[var.get_values() for var in varying])
+        else:
+            mesh = [varying[0].get_values(),]
         var_grid = numpy.transpose([numpy.ravel(ndarray) for ndarray in mesh])
         return var_grid, const, names
 
@@ -226,7 +229,7 @@ class task(helpers.dictable):
         """
         returns the total amount of measurement points defined in this task.
         """
-        return reduce(lambda x,y: x * (y.get_length()), self.variables.values(), 1)
+        return int(reduce(lambda x,y: x * (y.get_length()), self.variables.values(), 1))
         ### Whoa. Never thought my python would be this functional at one point. fischerm would be kind of irritated I didn't
         ### switch to haskell by now.
 
