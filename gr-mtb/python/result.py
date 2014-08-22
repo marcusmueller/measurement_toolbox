@@ -87,7 +87,7 @@ class result_comprehension(object):
                 row += var_values
                 mat.append(row)
             except KeyError:
-                pass≡jedi=0, ≡             (iterable, cmp = None, *key = None*, reverse = False) ≡jedi≡
+                pass
         return numpy.array(sorted(mat, key=lambda row: row[0]))
 
     def get_parameter_values(self, parameter, constraint = lambda x: True):
