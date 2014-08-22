@@ -19,16 +19,18 @@
 # Boston, MA 02110-1301, USA.
 #
 
-import sys
-import imp
-import os
-from PyQt4 import QtGui
 from PyQt4 import QtCore
-from PyQt4.QtCore import Qt, SIGNAL
+from PyQt4 import QtGui
 from PyQt4 import uic
+from PyQt4.QtCore import Qt, SIGNAL
+import imp
 import numpy
-
+import os
+import sys
+import tempfile
 import time
+import subprocess
+
 import benchmarking_task as bt
 from benchmarking_task import task, TYPE_STRINGS
 import helpers
@@ -68,7 +70,9 @@ class TaskFrontend(QtGui.QMainWindow):
         self.connect(self.gui.add_button, SIGNAL("clicked()"), lambda: self._add_var())
         self.connect(self.gui.add_sink_button, SIGNAL("clicked()"), lambda: self._add_sink())
         self.connect(self.gui.del_sink_button, SIGNAL("clicked()"), lambda: self._del_sink())
+        self.connect(self.gui.run_task, SIGNAL("clicked()"), lambda: self.run_task())
         self.connect(self.gui.param_type, SIGNAL("currentIndexChanged(int)"), lambda idx: self._type_changed(idx))
+        self.connect(self.gui.task_type, SIGNAL("currentIndexChanged(int)"), lambda idx: self._task_type_changed(idx))
         self.gui.show()
         self.task = task()
         self.__enable_cell_checks = True
@@ -81,6 +85,15 @@ class TaskFrontend(QtGui.QMainWindow):
         self.gui.sink_table.setRowCount(len(self.task.sinks))
         for idx, sink in enumerate(self.task.sinks):
             self._add_row_from_sink(idx,sink)
+        if self.task.instruction == "run_fg":
+            self.gui.class_input.setText(self.task.class_name)
+            self.gui.module_input.setText(self.task.module_name)
+            self.gui.task_type.setCurrentIndex(0)
+        elif self.task.instruction == "run_grc":
+            self.gui.grc_content.setDocument(QtGui.QTextDocument(self.task.grcxml))
+            self.gui.task_type.setCurrentIndex(1)
+        else:
+            print "unknown type", self.task.instruction
 
     def _add_row_from_parametrization(self, row, name, param):
         self.__enable_cell_checks = False
@@ -212,7 +225,8 @@ class TaskFrontend(QtGui.QMainWindow):
         sinkname = str(self.gui.sink_table.item(row,col).text())
         self.gui.sink_table.removeRow(row)
         self.task.sinks.remove(sinkname)
-
+    def _task_type_changed(self,idx):
+        self.gui.grc_fg_pager.setCurrentIndex(idx)
     def load_json_file(self):
         self.json_fname = QtGui.QFileDialog.getOpenFileName(self, 'Open JSON file', filter='JSON file (*.json *.js *.task)')
         print self.json_fname
@@ -223,6 +237,14 @@ class TaskFrontend(QtGui.QMainWindow):
         self._fill_from_task()
         
     def save_json_file(self):
+        if self.gui.task_type.selectedIndex() == 0:
+            ##run_fg
+            self.task.instruction = "run_fg"
+            self.task.class_name = self.gui.class_input
+            self.task.module_name = self.gui.module_input
+        elif self.gui.task_type.selectedIndex() == 1:
+            self.task.instruction = "run_grc"
+            self.task.grcxml = str(self.gui.grc_content.toPlainText())
         self.json_fname = QtGui.QFileDialog.getSaveFileName(self, 'Save JSON file', filter='JSON file (*.json *.js *.task)')
         self.task.save(str(self.json_fname))
     def import_tb(self):
@@ -235,4 +257,12 @@ class TaskFrontend(QtGui.QMainWindow):
     def _import_grc_direct(self, name):
         self.task = bt.task.from_grc(str(name))
         self._fill_from_task()
-
+    def run_task(self):
+        tfile = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+        ofile = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+        tfile.close()
+        ofile.close()
+        self.task.save(tfile)
+        tfile.close()
+        subprocess.Popen("remote_agent -t {tfile.name:s} -o {ofile.name:s}", shell=True)
+        

@@ -20,11 +20,11 @@
      <verstretch>0</verstretch>
     </sizepolicy>
    </property>
-   <layout class="QHBoxLayout" name="horizontalLayout">
+   <layout class="QVBoxLayout" name="verticalLayout_8">
     <item>
      <widget class="QTabWidget" name="tabwidget">
       <property name="currentIndex">
-       <number>0</number>
+       <number>2</number>
       </property>
       <widget class="QWidget" name="vartab">
        <attribute name="title">
@@ -54,7 +54,7 @@
              <enum>Qt::ElideRight</enum>
             </property>
             <attribute name="horizontalHeaderVisible">
-             <bool>true</bool>
+             <bool>false</bool>
             </attribute>
             <attribute name="horizontalHeaderCascadingSectionResizes">
              <bool>false</bool>
@@ -260,6 +260,77 @@
             </layout>
            </item>
           </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="configtab">
+       <property name="minimumSize">
+        <size>
+         <width>706</width>
+         <height>0</height>
+        </size>
+       </property>
+       <attribute name="title">
+        <string>Configuration</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_7">
+        <item>
+         <widget class="QGroupBox" name="groupBox_4">
+          <property name="title">
+           <string>Type</string>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_6">
+           <item>
+            <widget class="QComboBox" name="task_type">
+             <item>
+              <property name="text">
+               <string>RUN_FG</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>RUN_GRC</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QStackedWidget" name="grc_fg_pager">
+          <widget class="QWidget" name="fg_page">
+           <layout class="QGridLayout" name="gridLayout">
+            <item row="2" column="1">
+             <widget class="QLineEdit" name="lineEdit_2"/>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLineEdit" name="module_input"/>
+            </item>
+            <item row="0" column="0">
+             <widget class="QLabel" name="module_label">
+              <property name="text">
+               <string>module</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="0">
+             <widget class="QLabel" name="class_label">
+              <property name="text">
+               <string>class</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="grc_page">
+           <layout class="QHBoxLayout" name="horizontalLayout">
+            <item>
+             <widget class="QTextEdit" name="grc_content"/>
+            </item>
+           </layout>
+          </widget>
          </widget>
         </item>
        </layout>
