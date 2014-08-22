@@ -284,6 +284,8 @@
     <addaction name="open_json"/>
     <addaction name="save_json"/>
     <addaction name="separator"/>
+    <addaction name="run_task"/>
+    <addaction name="separator"/>
     <addaction name="import_tb"/>
     <addaction name="import_grc"/>
     <addaction name="separator"/>
@@ -327,6 +329,11 @@
   <action name="import_grc">
    <property name="text">
     <string>Import GNU Radio companion Flow Graph</string>
+   </property>
+  </action>
+  <action name="run_task">
+   <property name="text">
+    <string>Run!</string>
    </property>
   </action>
  </widget>
