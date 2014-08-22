@@ -23,5 +23,7 @@ GR_PYTHON_INSTALL(
     PROGRAMS
     task_frontend
     task_distribution
+    remote_agent
+    visualize_result
     DESTINATION bin
 )
