@@ -70,7 +70,7 @@ class TaskFrontend(QtGui.QMainWindow):
         self.connect(self.gui.add_button, SIGNAL("clicked()"), lambda: self._add_var())
         self.connect(self.gui.add_sink_button, SIGNAL("clicked()"), lambda: self._add_sink())
         self.connect(self.gui.del_sink_button, SIGNAL("clicked()"), lambda: self._del_sink())
-        self.connect(self.gui.run_task, SIGNAL("clicked()"), lambda: self.run_task())
+        self.connect(self.gui.run_task, SIGNAL("activated()"), lambda: self.run_task())
         self.connect(self.gui.param_type, SIGNAL("currentIndexChanged(int)"), lambda idx: self._type_changed(idx))
         self.connect(self.gui.task_type, SIGNAL("currentIndexChanged(int)"), lambda idx: self._task_type_changed(idx))
         self.gui.show()
@@ -86,7 +86,7 @@ class TaskFrontend(QtGui.QMainWindow):
         for idx, sink in enumerate(self.task.sinks):
             self._add_row_from_sink(idx,sink)
         if self.task.instruction == "run_fg":
-            self.gui.class_input.setText(self.task.class_name)
+            self.gui.classname_input.setText(self.task.class_name)
             self.gui.module_input.setText(self.task.module_name)
             self.gui.task_type.setCurrentIndex(0)
         elif self.task.instruction == "run_grc":
@@ -237,12 +237,12 @@ class TaskFrontend(QtGui.QMainWindow):
         self._fill_from_task()
         
     def save_json_file(self):
-        if self.gui.task_type.selectedIndex() == 0:
+        if self.gui.task_type.currentIndex() == 0:
             ##run_fg
             self.task.instruction = "run_fg"
-            self.task.class_name = self.gui.class_input
-            self.task.module_name = self.gui.module_input
-        elif self.gui.task_type.selectedIndex() == 1:
+            self.task.class_name = str(self.gui.classname_input.text())
+            self.task.module_name = str(self.gui.module_input.text())
+        elif self.gui.task_type.currentIndex() == 1:
             self.task.instruction = "run_grc"
             self.task.grcxml = str(self.gui.grc_content.toPlainText())
         self.json_fname = QtGui.QFileDialog.getSaveFileName(self, 'Save JSON file', filter='JSON file (*.json *.js *.task)')
@@ -258,11 +258,14 @@ class TaskFrontend(QtGui.QMainWindow):
         self.task = bt.task.from_grc(str(name))
         self._fill_from_task()
     def run_task(self):
+        print "starting run_task"
         tfile = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
-        ofile = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
-        tfile.close()
-        ofile.close()
+        odir = tempfile.mkdtemp()
+        ofile = os.path.join(odir, "results.json")
         self.task.save(tfile)
         tfile.close()
-        subprocess.Popen("remote_agent -t {tfile.name:s} -o {ofile.name:s}", shell=True)
-        
+        print "starting remote_agent"
+        subprocess.call("remote_agent -t {tfile.name:s} -o {ofile:s}".format(tfile=tfile, ofile=ofile), shell=True)
+        print "starting visualization"
+        subprocess.call("visualize_results -d {odir}".format(odir=odir), shell=True)
+

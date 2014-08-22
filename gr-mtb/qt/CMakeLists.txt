@@ -24,7 +24,7 @@ include(GrPython)
 #	task_frontend.ui
 #    DESTINATION ${GR_PYTHON_DIR}/mtb/qt
 #)
-install(FILES task_frontend.ui
+install(FILES task_frontend.ui visualize_results.ui
     DESTINATION ${GR_PYTHON_DIR}/mtb/qt
     COMPONENT ${GR_PYTHON_INSTALL_COMPONENT}
 )
