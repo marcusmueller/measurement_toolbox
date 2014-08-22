@@ -31,16 +31,16 @@ endif()
 GR_PYTHON_INSTALL(
     FILES
     __init__.py
+    benchmarking_task.py
     dispatcher.py
-    execution_agent.py
     distributed_benchmarking.py
-    remote_agent.py
+    execution_agent.py
     extraction_test_topblock.py
-    benchmarking_task.py
-    task_frontend.py
     helpers.py
-    benchmarking_task.py
-    visualize_results.py DESTINATION ${GR_PYTHON_DIR}/mtb
+    remote_agent.py
+    task_frontend.py
+    visualize_results.py
+    result.py DESTINATION ${GR_PYTHON_DIR}/mtb
 )
 
 ########################################################################

@@ -29,6 +29,7 @@ import time
 
 import benchmarking_task as bt
 import helpers
+from result import result
 ## ugly hack to make things work with bpython et al.
 ## threading assumes that stdout/err/in behave like proper streams,
 ## for some python shells some methods have not been implemented, though.
@@ -175,25 +176,6 @@ class remote_agent(object):
                 values[var_name] = param_val
                 #print "const", var_name, param_val
             yield (instance, values)
-
-class result(helpers.dictable):
-    def __init__(self, parameters, results):
-        self.results = results
-        self.parameters = parameters
-
-    def to_dict(self):
-        dic = {   "results": dict(self.results),
-                    "parameters": dict(self.parameters),
-                }
-        return dic
-
-    @staticmethod
-    def from_file(f):
-        results = json.load(f)
-        if type(results) == list:
-            return [ result( **r ) for r in results ]
-        else:
-            return result(**results)
 
 if __name__ == "__channelexec__":
     """

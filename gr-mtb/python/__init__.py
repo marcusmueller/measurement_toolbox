@@ -56,7 +56,10 @@ from remote_agent import remote_agent
 from extraction_test_topblock import extraction_test_topblock
 from benchmarking_task import task, parametrization
 from task_frontend import TaskFrontend
-from visualize_results import visualize_results
+from visualize_results import VisualizeResults
+
+from result import result, result_comprehension
+
 #from helpers import helpers
 
 # ----------------------------------------------------------------
